@@ -655,7 +655,48 @@ if __name__ == "__main__":
       valid = False,
       exception = Errors.NOT_GOVERNOR
     )
+    
+  ################################################################
+  # setMinTradeDelaySec
+  ################################################################
 
+  @sp.add_test(name="setMinTradeDelaySec - succeeds when called by governor")
+  def test():
+    # GIVEN a Quipuswap Proxy contract
+    scenario = sp.test_scenario()
+
+    proxy = MakerContract(
+      minTradeDelaySec = sp.nat(10)
+    )
+    scenario += proxy
+
+    # WHEN setMinTradeDelaySec is called
+    newValue = sp.nat(20)
+    scenario += proxy.setMinTradeDelaySec(newValue).run(
+      sender = Addresses.GOVERNOR_ADDRESS,
+    )
+
+    # THEN the storage is updated
+    scenario.verify(proxy.data.minTradeDelaySec == newValue)
+
+  @sp.add_test(name="setMinTradeDelaySec - fails when not called by governor")
+  def test():
+    # GIVEN a Quipuswap Proxy contract
+    scenario = sp.test_scenario()
+
+    proxy = MakerContract(
+      maxDataDelaySec = sp.nat(10)
+    )
+    scenario += proxy
+
+    # WHEN setMinTradeDelaySec is called is called by someone who isn't the governor THEN the call fails
+    newValue = sp.nat(20)
+    scenario += proxy.setMinTradeDelaySec(newValue).run(
+      sender = Addresses.NULL_ADDRESS,
+      valid = False,
+      exception = Errors.NOT_GOVERNOR
+    )
+    
   ################################################################
   # setSpreadAmount
   ################################################################
