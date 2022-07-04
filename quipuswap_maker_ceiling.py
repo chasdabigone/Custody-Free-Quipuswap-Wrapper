@@ -569,6 +569,7 @@ if __name__ == "__main__":
     scenario += proxy
 
     # WHEN a trade is initiated
+    # THEN the call fails
     amount = sp.nat(10)
     scenario += proxy.tokenToTezPayment().run(
       now = currentTime,
