@@ -45,3 +45,19 @@ APPROVAL = 15
 
 # Difference between spot and normalizer prices is too great
 VOLATILITY = 16
+
+## BELOW ARE ONLY USED IN TESTS ##
+# The user did not have a sufficient token balance to complete the operation.
+TOKEN_INSUFFICIENT_BALANCE = 17
+
+# The allowance change was unsafe. Please reset the allowance to zero before trying to operation again.
+TOKEN_UNSAFE_ALLOWANCE_CHANGE = 18
+
+# The operation was not performed by the token administrator.
+TOKEN_NOT_ADMINISTRATOR = 19
+
+# The debt ceiling would be exceeded if the operation were completed. 
+DEBT_CEILING = 20
+
+# The user was not allowed to perform a token transfer.
+TOKEN_NO_TRANSFER_PERMISSION = 21
