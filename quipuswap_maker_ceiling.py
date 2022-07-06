@@ -465,7 +465,7 @@ if __name__ == "__main__":
     scenario.verify(quipuswap.data.amountOut == 10 * 1000000)
     scenario.verify(quipuswap.data.destination == Addresses.RECEIVER_ADDRESS)
 
-  @sp.add_test(name="tezToTokenPayment - fails if oracle is outdated")
+  @sp.add_test(name="tokenToTezPayment - fails if oracle is outdated")
   def test():
     scenario = sp.test_scenario()
     
@@ -498,7 +498,7 @@ if __name__ == "__main__":
       exception = Errors.STALE_DATA
     )
 
-  @sp.add_test(name="tezToTokenPayment - fails if contract is paused")
+  @sp.add_test(name="tokenToTezPayment - fails if contract is paused")
   def test():
     # GIVEN a Quipuswap Proxy contract that is paused
     scenario = sp.test_scenario()
@@ -515,7 +515,7 @@ if __name__ == "__main__":
       exception = Errors.PAUSED
     )
 
-  @sp.add_test(name="tezToTokenPayment - fails if trade is sooner than minimum delay")
+  @sp.add_test(name="tokenToTezPayment - fails if trade is sooner than minimum delay")
   def test():
     # GIVEN a Quipuswap Proxy contract with minimum trade delay of 60 seconds
     scenario = sp.test_scenario()
@@ -536,7 +536,7 @@ if __name__ == "__main__":
       exception = Errors.TRADE_TIME
     )
 
-  @sp.add_test(name="tezToTokenPayment - fails if volatility between VWAP and Spot is too great")
+  @sp.add_test(name="tokenToTezPayment - fails if volatility between VWAP and Spot is too great")
   def test():
     scenario = sp.test_scenario()
 
