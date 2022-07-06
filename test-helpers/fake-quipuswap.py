@@ -52,6 +52,7 @@ class FakeQuipuswapContract(sp.Contract):
         self.data.destination = sp.snd(requestPair)
 
     # Fake entrypoint to vote. captures parameters for inspection.
+    @sp.entry_point
     def vote(self, requestPair):
         sp.set_type(requestPair,  sp.TPair(sp.TNat, sp.TAddress))
 
@@ -59,6 +60,7 @@ class FakeQuipuswapContract(sp.Contract):
         self.data.destination = sp.snd(requestPair)
 
     # Fake entrypoint to veto. captures parameters for inspection.
+    @sp.entry_point
     def veto(self, requestPair):
         sp.set_type(requestPair,  sp.TPair(sp.TNat, sp.TAddress))
 
