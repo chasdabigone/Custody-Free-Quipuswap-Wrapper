@@ -82,7 +82,7 @@ The LiquidityFund contract has the following entrypoints:
 
 `sendTokens`: Send tokenContractAddress tokens to a recipient. Can only be called by the governorContractAddress.
 
-`sendAllToken`s: Send all tokenContractAddress tokens to a recipient. Can only be called by the governorContractAddress.
+`sendAllTokens`: Send all tokenContractAddress tokens to a recipient. Can only be called by the governorContractAddress.
 
 `sendAllTokens_callback`: Callback for the sendAllTokens function. Can only be called by tokenContractAddress.
 
