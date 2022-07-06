@@ -94,7 +94,7 @@ The LiquidityFund contract has the following entrypoints:
 
 `setExecutorContract`: Update the executorContractAddress. Can only be called by the governorContractAddress.
 
-`setVolatilityTolerance`: Update the volatilityTolerance. Can only be called by the governorContractAddress.
+`setSlippageTolerance`: Update the slippageTolerance. Can only be called by the governorContractAddress.
 
 `setMaxDataDelaySec`: Update the maxDataDelaySec. Can only be called by the governorContractAddress.
 
