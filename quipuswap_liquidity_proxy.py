@@ -34,7 +34,7 @@ class LiquidityFundContract(sp.Contract):
         
         state = IDLE,
         sendAllTokens_destination = sp.none,
-        **extra_storage
+
     ):
         self.exception_optimization_level = "DefaultUnit"
 
@@ -52,7 +52,6 @@ class LiquidityFundContract(sp.Contract):
             state = state,
             sendAllTokens_destination = sendAllTokens_destination,
 
-            **extra_storage
         )
 
     ################################################################
@@ -75,10 +74,6 @@ class LiquidityFundContract(sp.Contract):
         # Verify the caller is the permissioned executor account.
         sp.verify(sp.sender == self.data.executorContractAddress, message = Errors.NOT_EXECUTOR)
 
-        # Destructure parameters.
-        tokensToAdd = param.tokens
-        mutezToAdd = param.mutez
-
         # Read vwap from Harbinger Normalizer views
         harbingerVwap = sp.view(
             "getPrice",
@@ -90,7 +85,7 @@ class LiquidityFundContract(sp.Contract):
         harbingerPrice = sp.snd(harbingerVwap)
 
         # Calculate input price to compare to Harbinger
-        inputPrice = tokensToAdd // mutezToAdd // 1000000
+        inputPrice = param.tokens // param.mutez // 1_000_000
 
         # Calculate percentage difference between Harbinger and function input
         percentageDifference = abs(harbingerPrice - inputPrice) * 100 // harbingerPrice
@@ -107,7 +102,7 @@ class LiquidityFundContract(sp.Contract):
             self.data.tokenContractAddress,
             "approve"
         ).open_some(message = Errors.APPROVAL)
-        approveArg = sp.pair(self.data.quipuswapContractAddress, tokensToAdd)
+        approveArg = sp.pair(self.data.quipuswapContractAddress, param.tokens)
         sp.transfer(approveArg, sp.mutez(0), approveHandle)
 
         # Add the liquidity to the Quipuswap contract.
@@ -116,7 +111,7 @@ class LiquidityFundContract(sp.Contract):
             self.data.quipuswapContractAddress,
             "investLiquidity"
         ).open_some(message = Errors.DEX_CONTRACT_ERROR)
-        sp.transfer(tokensToAdd, sp.utils.nat_to_mutez(mutezToAdd), addHandle)
+        sp.transfer(param.tokens, sp.utils.nat_to_mutez(param.mutez), addHandle)
     
     @sp.entry_point
     def removeLiquidity(self, param):
@@ -129,18 +124,13 @@ class LiquidityFundContract(sp.Contract):
         # Verify the caller is the governor address
         sp.verify(sp.sender == self.data.governorContractAddress, message = Errors.NOT_GOVERNOR)
 
-        # Destructure parameters
-        minMutez = param.min_mutez_out
-        minTokens = param.min_tokens_out
-        amountToRemove = param.lp_to_remove
-
         # Remove liquidity from the Quipuswap contract
         divestHandle = sp.contract(
             sp.TPair(sp.TPair(sp.TNat, sp.TNat), sp.TNat),
             self.data.quipuswapContractAddress,
             "divestLiquidity"
         ).open_some(message = Errors.DEX_CONTRACT_ERROR)
-        arg = sp.pair(sp.pair(minMutez, minTokens), amountToRemove)
+        arg = sp.pair(sp.pair(param.min_mutez_out, param.min_tokens_out), param.lp_to_remove)
         sp.transfer(arg, sp.mutez(0), divestHandle)
 
     @sp.entry_point
@@ -170,7 +160,6 @@ class LiquidityFundContract(sp.Contract):
         # Verify the caller is the governor address
         sp.verify(sp.sender == self.data.governorContractAddress, message = Errors.NOT_GOVERNOR)
 
-
         # Call vote() on Quipuswap AMM
         voteHandle = sp.contract(
             sp.TPair(sp.TPair(sp.TKeyHash, sp.TNat), sp.TAddress),
@@ -192,7 +181,7 @@ class LiquidityFundContract(sp.Contract):
 
         # Call veto() on Quipuswap AMM
         vetoHandle = sp.contract(
-            sp.TPair(sp.TNat,sp.TAddress),
+            sp.TPair(sp.TNat, sp.TAddress),
             self.data.quipuswapContractAddress,
             "veto"
         ).open_some(message = Errors.DEX_CONTRACT_ERROR)
@@ -434,12 +423,12 @@ if __name__ == "__main__":
     # ################################################################
     # ################################################################
 
-    DummyContract = sp.io.import_script_from_url("file:test-helpers/dummy-contract.py")
-    FA12 = sp.io.import_script_from_url("file:test-helpers/fa12.py")
-    FA2 = sp.io.import_script_from_url("file:test-helpers/fa2.py")
-    Token = sp.io.import_script_from_url("file:test-helpers/token.py")
-    FakeQuipuswap = sp.io.import_script_from_url("file:test-helpers/fake-quipuswap.py")
-    FakeHarbinger = sp.io.import_script_from_url("file:test-helpers/fake-harbinger-normalizer.py")
+    DummyContract = sp.io.import_stored_contract("dummy-contract")
+    FA12 = sp.io.import_stored_contract("fa12")
+    FA2 = sp.io.import_stored_contract("fa2")
+    Token = sp.io.import_stored_contract("token")
+    FakeQuipuswap = sp.io.import_stored_contract("fake-quipuswap")
+    FakeHarbinger = sp.io.import_stored_contract("fake-harbinger-normalizer")
 
     ################################################################
     # default
@@ -447,20 +436,20 @@ if __name__ == "__main__":
 
     @sp.add_test(name="default - can receive funds")
     def test():
-    	# GIVEN a LiquidityFund contract
-    	scenario = sp.test_scenario()
+      # GIVEN a LiquidityFund contract
+      scenario = sp.test_scenario()
 
-    	fund = LiquidityFundContract()
-    	scenario += fund
+      fund = LiquidityFundContract()
+      scenario += fund
 
-    	# WHEN the default entry point is called
-    	amount = sp.mutez(1)
-    	scenario += fund.default(sp.unit).run(
-    		amount = amount,
-    	)
+      # WHEN the default entry point is called
+      amount = sp.mutez(1)
+      scenario += fund.default(sp.unit).run(
+        amount = amount,
+      )
 
-    	# THEN the funds are accepted.
-    	scenario.verify(fund.balance == amount)
+      # THEN the funds are accepted.
+      scenario.verify(fund.balance == amount)
 
     ################################################################
     #addLiquidity
@@ -569,13 +558,13 @@ if __name__ == "__main__":
             harbingerUpdateTime = currentTime,
             harbingerValue = sp.nat(2000000))
         scenario += normalizer
-   
-    	# AND a Token contract.
-    	governorAddress = Addresses.GOVERNOR_ADDRESS
-    	token = Token.FA12(
-    		admin = governorAddress
-    	)
-    	scenario += token
+    
+        # AND a Token contract.
+        governorAddress = Addresses.GOVERNOR_ADDRESS
+        token = Token.FA12(
+          admin = governorAddress
+        )
+        scenario += token
 
         # AND a Quipuswap AMM contract
         quipuswap = FakeQuipuswap.FakeQuipuswapContract()
@@ -593,12 +582,12 @@ if __name__ == "__main__":
         fund.set_initial_balance(balance)
         scenario += fund
 
-    	# AND the fund has $2 of tokens.
-    	fundTokens = 2 * Constants.PRECISION 
-    	mintForFundParam = sp.record(address = fund.address, value = fundTokens)
-    	scenario += token.mint(mintForFundParam).run(
-    		sender = governorAddress
-    	)
+        # AND the fund has $2 of tokens.
+        fundTokens = 2 * Constants.PRECISION 
+        mintForFundParam = sp.record(address = fund.address, value = fundTokens)
+        scenario += token.mint(mintForFundParam).run(
+          sender = governorAddress
+        )
 
         # WHEN addLiquidity is called by the executor with a price of $2.00 THEN the invocation succeeds.
         
@@ -784,7 +773,7 @@ if __name__ == "__main__":
         scenario.verify(quipuswap.data.voteAmount == someValue)
         scenario.verify(quipuswap.data.voteCandidate == bakerHash)
         scenario.verify(quipuswap.data.voteAddress == selfAddr)
-        
+
     ################################################################
     # veto
     ################################################################
@@ -834,7 +823,7 @@ if __name__ == "__main__":
             sender = executor,
             valid = True
         )
-        
+
     @sp.add_test(name="veto - passes correct parameters")
     def test():
         scenario = sp.test_scenario()
@@ -870,44 +859,44 @@ if __name__ == "__main__":
 
     @sp.add_test(name="setDelegate - fails when not called by governor")
     def test():
-    	# GIVEN a LiquidityFund without a delegate and a governor.
-    	scenario = sp.test_scenario()
-    	governor = Addresses.GOVERNOR_ADDRESS
+      # GIVEN a LiquidityFund without a delegate and a governor.
+      scenario = sp.test_scenario()
+      governor = Addresses.GOVERNOR_ADDRESS
 
-    	fund = LiquidityFundContract(
-    		governorContractAddress = governor
-    	)
-    	scenario += fund
+      fund = LiquidityFundContract(
+        governorContractAddress = governor
+      )
+      scenario += fund
 
-    	# WHEN setDelegate is called by someone other than the governor THEN the invocation fails.
-    	notGovernor = Addresses.NULL_ADDRESS
-    	delegate = sp.some(Addresses.BAKER_KEY_HASH)
-    	scenario += fund.setDelegate(delegate).run(
-    		sender = notGovernor,
-    		voting_powers = Addresses.VOTING_POWERS,
-    		valid = False
-    	)
+      # WHEN setDelegate is called by someone other than the governor THEN the invocation fails.
+      notGovernor = Addresses.NULL_ADDRESS
+      delegate = sp.some(Addresses.BAKER_KEY_HASH)
+      scenario += fund.setDelegate(delegate).run(
+        sender = notGovernor,
+        voting_powers = Addresses.VOTING_POWERS,
+        valid = False
+      )
 
     @sp.add_test(name="setDelegate - updates delegate")
     def test():
-    	# GIVEN a LiquidityFund contract without a delegate and a governor.
-    	scenario = sp.test_scenario()
-    	governor = Addresses.GOVERNOR_ADDRESS
+      # GIVEN a LiquidityFund contract without a delegate and a governor.
+      scenario = sp.test_scenario()
+      governor = Addresses.GOVERNOR_ADDRESS
 
-    	fund = LiquidityFundContract(
-    		governorContractAddress = governor
-    	)
-    	scenario += fund
+      fund = LiquidityFundContract(
+        governorContractAddress = governor
+      )
+      scenario += fund
 
-    	# WHEN setDelegate is called by the governor
-    	delegate = sp.some(Addresses.BAKER_KEY_HASH)
-    	scenario += fund.setDelegate(delegate).run(
-    		sender = governor,
-    		voting_powers = Addresses.VOTING_POWERS
-    	)
+      # WHEN setDelegate is called by the governor
+      delegate = sp.some(Addresses.BAKER_KEY_HASH)
+      scenario += fund.setDelegate(delegate).run(
+        sender = governor,
+        voting_powers = Addresses.VOTING_POWERS
+      )
 
-    	# THEN the delegate is updated.
-    	scenario.verify(fund.baker.open_some() == delegate.open_some())
+      # THEN the delegate is updated.
+      scenario.verify(fund.baker.open_some() == delegate.open_some())
 
     ################################################################
     # send
@@ -915,80 +904,80 @@ if __name__ == "__main__":
 
     @sp.add_test(name="send - succeeds when called by governor")
     def test():
-    	scenario = sp.test_scenario()
+      scenario = sp.test_scenario()
 
-    	# GIVEN a LiquidityFund contract with some balance
-    	balance = sp.mutez(10)
-    	governorContractAddress = Addresses.GOVERNOR_ADDRESS
-    	fund = LiquidityFundContract(
-    		governorContractAddress = governorContractAddress
-    	)
-    	fund.set_initial_balance(balance)
-    	scenario += fund
+      # GIVEN a LiquidityFund contract with some balance
+      balance = sp.mutez(10)
+      governorContractAddress = Addresses.GOVERNOR_ADDRESS
+      fund = LiquidityFundContract(
+        governorContractAddress = governorContractAddress
+      )
+      fund.set_initial_balance(balance)
+      scenario += fund
 
-    	# AND a dummy contract to receive funds
-    	dummyContract = DummyContract.DummyContract()
-    	scenario += dummyContract
+      # AND a dummy contract to receive funds
+      dummyContract = DummyContract.DummyContract()
+      scenario += dummyContract
 
-    	# WHEN send is called
-    	param = (balance, dummyContract.address)
-    	scenario += fund.send(param).run(
-    		sender = governorContractAddress,
-    	)
+      # WHEN send is called
+      param = (balance, dummyContract.address)
+      scenario += fund.send(param).run(
+        sender = governorContractAddress,
+      )
 
-    	# THEN the funds are sent.
-    	scenario.verify(fund.balance == sp.mutez(0))
-    	scenario.verify(dummyContract.balance == balance)
+      # THEN the funds are sent.
+      scenario.verify(fund.balance == sp.mutez(0))
+      scenario.verify(dummyContract.balance == balance)
 
     @sp.add_test(name="send - succeeds when with less than the entire amount")
     def test():
-    	scenario = sp.test_scenario()
+      scenario = sp.test_scenario()
 
-    	# GIVEN a LiquidityFund contract with some balance
-    	balance = sp.mutez(10)
-    	governorContractAddress = Addresses.GOVERNOR_ADDRESS
-    	fund = LiquidityFundContract(
-    		governorContractAddress = governorContractAddress
-    	)
-    	fund.set_initial_balance(balance)
-    	scenario += fund
+      # GIVEN a LiquidityFund contract with some balance
+      balance = sp.mutez(10)
+      governorContractAddress = Addresses.GOVERNOR_ADDRESS
+      fund = LiquidityFundContract(
+        governorContractAddress = governorContractAddress
+      )
+      fund.set_initial_balance(balance)
+      scenario += fund
 
-    	# AND a dummy contract to receive funds
-    	dummyContract = DummyContract.DummyContract()
-    	scenario += dummyContract
+      # AND a dummy contract to receive funds
+      dummyContract = DummyContract.DummyContract()
+      scenario += dummyContract
 
-    	# WHEN send is called with less than the full amount
-    	sendAmount = sp.mutez(2)
-    	param = (sendAmount, dummyContract.address)
-    	scenario += fund.send(param).run(
-    		sender = governorContractAddress,
-    	)
+      # WHEN send is called with less than the full amount
+      sendAmount = sp.mutez(2)
+      param = (sendAmount, dummyContract.address)
+      scenario += fund.send(param).run(
+        sender = governorContractAddress,
+      )
 
-    	# THEN the funds are sent.
-    	scenario.verify(fund.balance == (balance - sendAmount))
-    	scenario.verify(dummyContract.balance == sendAmount)        
+      # THEN the funds are sent.
+      scenario.verify(fund.balance == (balance - sendAmount))
+      scenario.verify(dummyContract.balance == sendAmount)        
 
     @sp.add_test(name="send - fails when not called by governor")
     def test():
-    	scenario = sp.test_scenario()
+      scenario = sp.test_scenario()
 
-    	# GIVEN a LiquidityFund contract
-    	balance = sp.mutez(10)
-    	governorContractAddress = Addresses.GOVERNOR_ADDRESS
-    	fund = LiquidityFundContract(
-    		governorContractAddress = governorContractAddress
-    	)
-    	fund.set_initial_balance(balance)
-    	scenario += fund
+      # GIVEN a LiquidityFund contract
+      balance = sp.mutez(10)
+      governorContractAddress = Addresses.GOVERNOR_ADDRESS
+      fund = LiquidityFundContract(
+        governorContractAddress = governorContractAddress
+      )
+      fund.set_initial_balance(balance)
+      scenario += fund
 
-    	# WHEN send is called by someone who isn't the governor THEN the call fails
-    	notGovernor = Addresses.NULL_ADDRESS
-    	param = (balance, notGovernor)
-    	scenario += fund.send(param).run(
-    		sender = notGovernor,
-    		valid = False,
-    		exception = Errors.NOT_GOVERNOR
-    	)    
+      # WHEN send is called by someone who isn't the governor THEN the call fails
+      notGovernor = Addresses.NULL_ADDRESS
+      param = (balance, notGovernor)
+      scenario += fund.send(param).run(
+        sender = notGovernor,
+        valid = False,
+        exception = Errors.NOT_GOVERNOR
+      )    
 
     ################################################################
     # sendAll
@@ -996,50 +985,50 @@ if __name__ == "__main__":
 
     @sp.add_test(name="sendAll - succeeds when called by governor")
     def test():
-    	scenario = sp.test_scenario()
+      scenario = sp.test_scenario()
 
-    	# GIVEN a LiquidityFund contract with some balance
-    	balance = sp.mutez(10)
-    	governorContractAddress = Addresses.GOVERNOR_ADDRESS
-    	fund = LiquidityFundContract(
-    		governorContractAddress = governorContractAddress
-    	)
-    	fund.set_initial_balance(balance)
-    	scenario += fund
+      # GIVEN a LiquidityFund contract with some balance
+      balance = sp.mutez(10)
+      governorContractAddress = Addresses.GOVERNOR_ADDRESS
+      fund = LiquidityFundContract(
+        governorContractAddress = governorContractAddress
+      )
+      fund.set_initial_balance(balance)
+      scenario += fund
 
-    	# AND a dummy contract to receive funds
-    	dummyContract = DummyContract.DummyContract()
-    	scenario += dummyContract
+      # AND a dummy contract to receive funds
+      dummyContract = DummyContract.DummyContract()
+      scenario += dummyContract
 
-    	# WHEN sendAll is called
-    	scenario += fund.sendAll(dummyContract.address).run(
-    		sender = governorContractAddress,
-    	)
+      # WHEN sendAll is called
+      scenario += fund.sendAll(dummyContract.address).run(
+        sender = governorContractAddress,
+      )
 
-    	# THEN the funds are sent.
-    	scenario.verify(fund.balance == sp.mutez(0))
-    	scenario.verify(dummyContract.balance == balance)
+      # THEN the funds are sent.
+      scenario.verify(fund.balance == sp.mutez(0))
+      scenario.verify(dummyContract.balance == balance)
      
     @sp.add_test(name="sendAll - fails when not called by governor")
     def test():
-    	scenario = sp.test_scenario()
+      scenario = sp.test_scenario()
 
-    	# GIVEN a LiquidityFund contract
-    	balance = sp.mutez(10)
-    	governorContractAddress = Addresses.GOVERNOR_ADDRESS
-    	fund = LiquidityFundContract(
-    		governorContractAddress = governorContractAddress
-    	)
-    	fund.set_initial_balance(balance)
-    	scenario += fund
+      # GIVEN a LiquidityFund contract
+      balance = sp.mutez(10)
+      governorContractAddress = Addresses.GOVERNOR_ADDRESS
+      fund = LiquidityFundContract(
+        governorContractAddress = governorContractAddress
+      )
+      fund.set_initial_balance(balance)
+      scenario += fund
 
-    	# WHEN send is called by someone who isn't the governor THEN the call fails
-    	notGovernor = Addresses.NULL_ADDRESS
-    	scenario += fund.sendAll(notGovernor).run(
-    		sender = notGovernor,
-    		valid = False,
-    		exception = Errors.NOT_GOVERNOR
-    	)    
+      # WHEN send is called by someone who isn't the governor THEN the call fails
+      notGovernor = Addresses.NULL_ADDRESS
+      scenario += fund.sendAll(notGovernor).run(
+        sender = notGovernor,
+        valid = False,
+        exception = Errors.NOT_GOVERNOR
+      )    
 
     ################################################################
     # sendTokens
@@ -1047,79 +1036,79 @@ if __name__ == "__main__":
 
     @sp.add_test(name="sendTokens - succeeds when called by governor")
     def test():
-    	scenario = sp.test_scenario()
+      scenario = sp.test_scenario()
 
-    	# GIVEN a Token contract.
-    	governorAddress = Addresses.GOVERNOR_ADDRESS
-    	token = Token.FA12(
-    		admin = governorAddress
-    	)
-    	scenario += token
+      # GIVEN a Token contract.
+      governorAddress = Addresses.GOVERNOR_ADDRESS
+      token = Token.FA12(
+        admin = governorAddress
+      )
+      scenario += token
 
-    	# AND a LiquidityFund contract
-    	fund = LiquidityFundContract(
-    		governorContractAddress = governorAddress,
-    		tokenContractAddress = token.address
-    	)
-    	scenario += fund
+      # AND a LiquidityFund contract
+      fund = LiquidityFundContract(
+        governorContractAddress = governorAddress,
+        tokenContractAddress = token.address
+      )
+      scenario += fund
 
-    	# And a dummy contract to send to.
-    	dummyContract = DummyContract.DummyContract()
-    	scenario += dummyContract
+      # And a dummy contract to send to.
+      dummyContract = DummyContract.DummyContract()
+      scenario += dummyContract
 
-    	# AND the fund has $1000 of tokens.
-    	fundTokens = 1000 * Constants.PRECISION 
-    	mintForFundParam = sp.record(address = fund.address, value = fundTokens)
-    	scenario += token.mint(mintForFundParam).run(
-    		sender = governorAddress
-    	)
+      # AND the fund has $1000 of tokens.
+      fundTokens = 1000 * Constants.PRECISION 
+      mintForFundParam = sp.record(address = fund.address, value = fundTokens)
+      scenario += token.mint(mintForFundParam).run(
+        sender = governorAddress
+      )
 
-    	# WHEN sendTokens is called
-    	amount = sp.nat(200)
-    	param = (amount, dummyContract.address)
-    	scenario += fund.sendTokens(param).run(
-    		sender = governorAddress,
-    	)
+      # WHEN sendTokens is called
+      amount = sp.nat(200)
+      param = (amount, dummyContract.address)
+      scenario += fund.sendTokens(param).run(
+        sender = governorAddress,
+      )
 
-    	# THEN the fund is debited tokens
-    	scenario.verify(token.data.balances[fund.address].balance == sp.as_nat(fundTokens - amount))
+      # THEN the fund is debited tokens
+      scenario.verify(token.data.balances[fund.address].balance == sp.as_nat(fundTokens - amount))
 
-    	# AND the receiver was credited the tokens.
-    	scenario.verify(token.data.balances[dummyContract.address].balance == amount)
+      # AND the receiver was credited the tokens.
+      scenario.verify(token.data.balances[dummyContract.address].balance == amount)
 
     @sp.add_test(name="sendTokens - fails when not called by governor")
     def test():
-    	scenario = sp.test_scenario()
+      scenario = sp.test_scenario()
 
-    	# GIVEN a Token contract.
-    	governorAddress = Addresses.GOVERNOR_ADDRESS
-    	token = Token.FA12(
-    		admin = governorAddress
-    	)
-    	scenario += token
+      # GIVEN a Token contract.
+      governorAddress = Addresses.GOVERNOR_ADDRESS
+      token = Token.FA12(
+        admin = governorAddress
+      )
+      scenario += token
 
-    	# AND a LiquidityFund contract
-    	fund = LiquidityFundContract(
-    		governorContractAddress = governorAddress,
-    		tokenContractAddress = token.address
-    	)
-    	scenario += fund
+      # AND a LiquidityFund contract
+      fund = LiquidityFundContract(
+        governorContractAddress = governorAddress,
+        tokenContractAddress = token.address
+      )
+      scenario += fund
 
-    	# AND the fund has $1000 of tokens.
-    	fundTokens = 1000 * Constants.PRECISION 
-    	mintForFundParam = sp.record(address = fund.address, value = fundTokens)
-    	scenario += token.mint(mintForFundParam).run(
-    		sender = governorAddress
-    	)
+      # AND the fund has $1000 of tokens.
+      fundTokens = 1000 * Constants.PRECISION 
+      mintForFundParam = sp.record(address = fund.address, value = fundTokens)
+      scenario += token.mint(mintForFundParam).run(
+        sender = governorAddress
+      )
 
-    	# WHEN sendTokens is called by someone who isn't the governor THEN the call fails.
-    	notGovernor = Addresses.NULL_ADDRESS
-    	amount = sp.nat(200)
-    	param = (amount, Addresses.ROTATED_ADDRESS)
-    	scenario += fund.sendTokens(param).run(
-    		sender = notGovernor,
-    		valid = False
-    	)
+      # WHEN sendTokens is called by someone who isn't the governor THEN the call fails.
+      notGovernor = Addresses.NULL_ADDRESS
+      amount = sp.nat(200)
+      param = (amount, Addresses.ROTATED_ADDRESS)
+      scenario += fund.sendTokens(param).run(
+        sender = notGovernor,
+        valid = False
+      )
 
     ################################################################
     # setGovernorContract
@@ -1127,41 +1116,41 @@ if __name__ == "__main__":
 
     @sp.add_test(name="setGovernorContract - succeeds when called by governor")
     def test():
-    	# GIVEN a LiquidityFund contract
-    	scenario = sp.test_scenario()
+      # GIVEN a LiquidityFund contract
+      scenario = sp.test_scenario()
 
-    	governorContractAddress = Addresses.GOVERNOR_ADDRESS
-    	fund = LiquidityFundContract(
-    		governorContractAddress = governorContractAddress
-    	)
-    	scenario += fund
+      governorContractAddress = Addresses.GOVERNOR_ADDRESS
+      fund = LiquidityFundContract(
+        governorContractAddress = governorContractAddress
+      )
+      scenario += fund
 
-    	# WHEN the setGovernorContract is called with a new contract
-    	rotatedAddress = Addresses.ROTATED_ADDRESS
-    	scenario += fund.setGovernorContract(rotatedAddress).run(
-    		sender = governorContractAddress,
-    	)
+      # WHEN the setGovernorContract is called with a new contract
+      rotatedAddress = Addresses.ROTATED_ADDRESS
+      scenario += fund.setGovernorContract(rotatedAddress).run(
+        sender = governorContractAddress,
+      )
 
-    	# THEN the contract is updated.
-    	scenario.verify(fund.data.governorContractAddress == rotatedAddress)
+      # THEN the contract is updated.
+      scenario.verify(fund.data.governorContractAddress == rotatedAddress)
 
     @sp.add_test(name="setGovernorContract - fails when not called by governor")
     def test():
-    	# GIVEN a LiquidityFund contract
-    	scenario = sp.test_scenario()
+      # GIVEN a LiquidityFund contract
+      scenario = sp.test_scenario()
 
-    	governorContractAddress = Addresses.GOVERNOR_ADDRESS
-    	fund = LiquidityFundContract(
-    		governorContractAddress = governorContractAddress
-    	)
-    	scenario += fund
+      governorContractAddress = Addresses.GOVERNOR_ADDRESS
+      fund = LiquidityFundContract(
+        governorContractAddress = governorContractAddress
+      )
+      scenario += fund
 
-    	# WHEN the setGovernorContract is called by someone who isn't the governor THEN the call fails
-    	rotatedAddress = Addresses.ROTATED_ADDRESS
-    	scenario += fund.setGovernorContract(rotatedAddress).run(
-    		sender = Addresses.NULL_ADDRESS,
-    		valid = False
-    	)    
+      # WHEN the setGovernorContract is called by someone who isn't the governor THEN the call fails
+      rotatedAddress = Addresses.ROTATED_ADDRESS
+      scenario += fund.setGovernorContract(rotatedAddress).run(
+        sender = Addresses.NULL_ADDRESS,
+        valid = False
+      )    
 
     ################################################################
     # setExecutorContract
@@ -1169,82 +1158,82 @@ if __name__ == "__main__":
 
     @sp.add_test(name="setExecutorContract - succeeds when called by governor")
     def test():
-    	# GIVEN an LiquidityFund contract
-    	scenario = sp.test_scenario()
+      # GIVEN an LiquidityFund contract
+      scenario = sp.test_scenario()
 
-    	governorContractAddress = Addresses.GOVERNOR_ADDRESS
-    	fund = LiquidityFundContract(
-    		governorContractAddress = governorContractAddress
-    	)
-    	scenario += fund
+      governorContractAddress = Addresses.GOVERNOR_ADDRESS
+      fund = LiquidityFundContract(
+        governorContractAddress = governorContractAddress
+      )
+      scenario += fund
 
-    	# WHEN the setExecutorContract is called with a new contract
-    	rotatedAddress= Addresses.ROTATED_ADDRESS
-    	scenario += fund.setExecutorContract(rotatedAddress).run(
-    		sender = governorContractAddress,
-    	)
+      # WHEN the setExecutorContract is called with a new contract
+      rotatedAddress= Addresses.ROTATED_ADDRESS
+      scenario += fund.setExecutorContract(rotatedAddress).run(
+        sender = governorContractAddress,
+      )
 
-    	# THEN the contract is updated.
-    	scenario.verify(fund.data.executorContractAddress == rotatedAddress)
+      # THEN the contract is updated.
+      scenario.verify(fund.data.executorContractAddress == rotatedAddress)
 
     @sp.add_test(name="setExecutorContract - fails when not called by governor")
     def test():
-    	# GIVEN a LiquidityFund contract
-    	scenario = sp.test_scenario()
+      # GIVEN a LiquidityFund contract
+      scenario = sp.test_scenario()
 
-    	governorContractAddress = Addresses.GOVERNOR_ADDRESS
-    	fund = LiquidityFundContract(
-    		governorContractAddress = governorContractAddress
-    	)
-    	scenario += fund
+      governorContractAddress = Addresses.GOVERNOR_ADDRESS
+      fund = LiquidityFundContract(
+        governorContractAddress = governorContractAddress
+      )
+      scenario += fund
 
-    	# WHEN the setExecutorContract is called by someone who isn't the governor THEN the call fails
-    	rotatedAddress = Addresses.ROTATED_ADDRESS
-    	scenario += fund.setExecutorContract(rotatedAddress).run(
-    		sender = Addresses.NULL_ADDRESS,
-    		valid = False
-    	)    
+      # WHEN the setExecutorContract is called by someone who isn't the governor THEN the call fails
+      rotatedAddress = Addresses.ROTATED_ADDRESS
+      scenario += fund.setExecutorContract(rotatedAddress).run(
+        sender = Addresses.NULL_ADDRESS,
+        valid = False
+      )    
     ################################################################
     # setSlippageTolerance
     ################################################################
 
     @sp.add_test(name="setSlippageTolerance - succeeds when called by governor")
     def test():
-    	# GIVEN a LiquidityFund contract
-    	scenario = sp.test_scenario()
+      # GIVEN a LiquidityFund contract
+      scenario = sp.test_scenario()
 
-    	governorContractAddress = Addresses.GOVERNOR_ADDRESS
-    	fund = LiquidityFundContract(
-    		governorContractAddress = governorContractAddress
-    	)
-    	scenario += fund
+      governorContractAddress = Addresses.GOVERNOR_ADDRESS
+      fund = LiquidityFundContract(
+        governorContractAddress = governorContractAddress
+      )
+      scenario += fund
 
-    	# WHEN the setSlippageTolerance is called with some number
-        someNumber = 8
-    	scenario += fund.setSlippageTolerance(someNumber).run(
-    		sender = governorContractAddress,
-    	)
+      # WHEN the setSlippageTolerance is called with some number
+      someNumber = 8
+      scenario += fund.setSlippageTolerance(someNumber).run(
+        sender = governorContractAddress,
+      )
 
-    	# THEN the contract is updated.
-    	scenario.verify(fund.data.slippageTolerance == someNumber)
+      # THEN the contract is updated.
+      scenario.verify(fund.data.slippageTolerance == someNumber)
 
     @sp.add_test(name="setSlippageTolerance - fails when not called by governor")
     def test():
-    	# GIVEN a LiquidityFund contract
-    	scenario = sp.test_scenario()
+      # GIVEN a LiquidityFund contract
+      scenario = sp.test_scenario()
 
-    	governorContractAddress = Addresses.GOVERNOR_ADDRESS
-    	fund = LiquidityFundContract(
-    		governorContractAddress = governorContractAddress
-    	)
-    	scenario += fund
+      governorContractAddress = Addresses.GOVERNOR_ADDRESS
+      fund = LiquidityFundContract(
+        governorContractAddress = governorContractAddress
+      )
+      scenario += fund
 
-    	# WHEN the setSlippageTolerance is called by someone who isn't the governor THEN the call fails
-    	someNumber = 8
-    	scenario += fund.setSlippageTolerance(someNumber).run(
-    		sender = Addresses.NULL_ADDRESS,
-    		valid = False
-    	)    
+      # WHEN the setSlippageTolerance is called by someone who isn't the governor THEN the call fails
+      someNumber = 8
+      scenario += fund.setSlippageTolerance(someNumber).run(
+        sender = Addresses.NULL_ADDRESS,
+        valid = False
+      )    
 
     ################################################################
     # setMaxDataDelaySec
@@ -1252,41 +1241,41 @@ if __name__ == "__main__":
 
     @sp.add_test(name="setMaxDataDelaySec - succeeds when called by governor")
     def test():
-    	# GIVEN a LiquidityFund contract
-    	scenario = sp.test_scenario()
+      # GIVEN a LiquidityFund contract
+      scenario = sp.test_scenario()
 
-    	governorContractAddress = Addresses.GOVERNOR_ADDRESS
-    	fund = LiquidityFundContract(
-    		governorContractAddress = governorContractAddress
-    	)
-    	scenario += fund
+      governorContractAddress = Addresses.GOVERNOR_ADDRESS
+      fund = LiquidityFundContract(
+        governorContractAddress = governorContractAddress
+      )
+      scenario += fund
 
-    	# WHEN setMaxDataDelaySec is called with some number
-        someNumber = 8
-    	scenario += fund.setMaxDataDelaySec(someNumber).run(
-    		sender = governorContractAddress,
-    	)
+      # WHEN setMaxDataDelaySec is called with some number
+      someNumber = 8
+      scenario += fund.setMaxDataDelaySec(someNumber).run(
+        sender = governorContractAddress,
+      )
 
-    	# THEN the contract is updated.
-    	scenario.verify(fund.data.maxDataDelaySec == someNumber)
+      # THEN the contract is updated.
+      scenario.verify(fund.data.maxDataDelaySec == someNumber)
 
     @sp.add_test(name="setMaxDataDelaySec - fails when not called by governor")
     def test():
-    	# GIVEN a LiquidityFund contract
-    	scenario = sp.test_scenario()
+      # GIVEN a LiquidityFund contract
+      scenario = sp.test_scenario()
 
-    	governorContractAddress = Addresses.GOVERNOR_ADDRESS
-    	fund = LiquidityFundContract(
-    		governorContractAddress = governorContractAddress
-    	)
-    	scenario += fund
+      governorContractAddress = Addresses.GOVERNOR_ADDRESS
+      fund = LiquidityFundContract(
+        governorContractAddress = governorContractAddress
+      )
+      scenario += fund
 
-    	# WHEN the setMaxDataDelaySec is called by someone who isn't the governor THEN the call fails
-    	someNumber = 8
-    	scenario += fund.setMaxDataDelaySec(someNumber).run(
-    		sender = Addresses.NULL_ADDRESS,
-    		valid = False
-    	)  
+      # WHEN the setMaxDataDelaySec is called by someone who isn't the governor THEN the call fails
+      someNumber = 8
+      scenario += fund.setMaxDataDelaySec(someNumber).run(
+        sender = Addresses.NULL_ADDRESS,
+        valid = False
+      )  
 
     ################################################################
     # setHarbingerContract
@@ -1294,149 +1283,149 @@ if __name__ == "__main__":
 
     @sp.add_test(name="setHarbingerContract - succeeds when called by governor")
     def test():
-    	# GIVEN a LiquidityFund contract
-    	scenario = sp.test_scenario()
+      # GIVEN a LiquidityFund contract
+      scenario = sp.test_scenario()
 
-    	governorContractAddress = Addresses.GOVERNOR_ADDRESS
-    	fund = LiquidityFundContract(
-    		governorContractAddress = governorContractAddress
-    	)
-    	scenario += fund
+      governorContractAddress = Addresses.GOVERNOR_ADDRESS
+      fund = LiquidityFundContract(
+        governorContractAddress = governorContractAddress
+      )
+      scenario += fund
 
-    	# WHEN setHarbingerContract is called with some address
-        rotatedAddress = Addresses.ROTATED_ADDRESS
-    	scenario += fund.setHarbingerContract(rotatedAddress).run(
-    		sender = governorContractAddress,
-    	)
+      # WHEN setHarbingerContract is called with some address
+      rotatedAddress = Addresses.ROTATED_ADDRESS
+      scenario += fund.setHarbingerContract(rotatedAddress).run(
+        sender = governorContractAddress,
+      )
 
-    	# THEN the contract is updated.
-    	scenario.verify(fund.data.harbingerContractAddress == rotatedAddress)
+      # THEN the contract is updated.
+      scenario.verify(fund.data.harbingerContractAddress == rotatedAddress)
 
     @sp.add_test(name="setHarbingerContract - fails when not called by governor")
     def test():
-    	# GIVEN a LiquidityFund contract
-    	scenario = sp.test_scenario()
+      # GIVEN a LiquidityFund contract
+      scenario = sp.test_scenario()
 
-    	governorContractAddress = Addresses.GOVERNOR_ADDRESS
-    	fund = LiquidityFundContract(
-    		governorContractAddress = governorContractAddress
-    	)
-    	scenario += fund
+      governorContractAddress = Addresses.GOVERNOR_ADDRESS
+      fund = LiquidityFundContract(
+        governorContractAddress = governorContractAddress
+      )
+      scenario += fund
 
-    	# WHEN the setHarbingerContract is called by someone who isn't the governor THEN the call fails
-    	rotatedAddress = Addresses.ROTATED_ADDRESS
-    	scenario += fund.setHarbingerContract(rotatedAddress).run(
-    		sender = Addresses.NULL_ADDRESS,
-    		valid = False
-    	)  
+      # WHEN the setHarbingerContract is called by someone who isn't the governor THEN the call fails
+      rotatedAddress = Addresses.ROTATED_ADDRESS
+      scenario += fund.setHarbingerContract(rotatedAddress).run(
+        sender = Addresses.NULL_ADDRESS,
+        valid = False
+      )  
     ################################################################
     # rescueFA2
     ################################################################
 
     @sp.add_test(name="rescueFA2 - rescues tokens")
     def test():
-    	scenario = sp.test_scenario()
+      scenario = sp.test_scenario()
 
-    	# GIVEN an FA2 token contract
-    	config = FA2.FA2_config()
-    	token = FA2.FA2(
-    		config = config,
-    		metadata = sp.utils.metadata_of_url("https://example.com"),      
-    		admin = Addresses.GOVERNOR_ADDRESS
-    	)
-    	scenario += token
+      # GIVEN an FA2 token contract
+      config = FA2.FA2_config()
+      token = FA2.FA2(
+        config = config,
+        metadata = sp.utils.metadata_of_url("https://example.com"),      
+        admin = Addresses.GOVERNOR_ADDRESS
+      )
+      scenario += token
 
-    	# AND a liquidity fund contract
-    	governorContractAddress = Addresses.GOVERNOR_ADDRESS
-    	fund = LiquidityFundContract(
-    		governorContractAddress = governorContractAddress
-    	)
-    	scenario += fund
+      # AND a liquidity fund contract
+      governorContractAddress = Addresses.GOVERNOR_ADDRESS
+      fund = LiquidityFundContract(
+        governorContractAddress = governorContractAddress
+      )
+      scenario += fund
 
-    	# AND the liquidity fund has tokens given to it.
-    	value = sp.nat(100)
-    	tokenId = 0
-    	scenario += token.mint(    
-    		address = fund.address,
-    		amount = value,
-    		metadata = FA2.FA2.make_metadata(
-    			name = "SomeToken",
-    			decimals = 18,
-    			symbol= "ST"
-    		),
-    		token_id = tokenId
-    	).run(
-    		sender = Addresses.GOVERNOR_ADDRESS
-    	)
+      # AND the liquidity fund has tokens given to it.
+      value = sp.nat(100)
+      tokenId = 0
+      scenario += token.mint(    
+        address = fund.address,
+        amount = value,
+        metadata = FA2.FA2.make_metadata(
+          name = "SomeToken",
+          decimals = 18,
+          symbol= "ST"
+        ),
+        token_id = tokenId
+      ).run(
+        sender = Addresses.GOVERNOR_ADDRESS
+      )
         
-    	# WHEN rescueFA2 is called.
-    	scenario += fund.rescueFA2(
-    		sp.record(
-    			destination = Addresses.ALICE_ADDRESS,
-    			amount = value,
-    			tokenId = tokenId,
-    			tokenContractAddress = token.address
-    		)
-    	).run(
-    		sender = Addresses.GOVERNOR_ADDRESS,
-    	)    
+      # WHEN rescueFA2 is called.
+      scenario += fund.rescueFA2(
+        sp.record(
+          destination = Addresses.ALICE_ADDRESS,
+          amount = value,
+          tokenId = tokenId,
+          tokenContractAddress = token.address
+        )
+      ).run(
+        sender = Addresses.GOVERNOR_ADDRESS,
+      )    
 
-    	# THEN the tokens are rescued.
-    	scenario.verify(token.data.ledger[(fund.address, tokenId)].balance == sp.nat(0))
-    	scenario.verify(token.data.ledger[(Addresses.ALICE_ADDRESS, tokenId)].balance == value)
+      # THEN the tokens are rescued.
+      scenario.verify(token.data.ledger[(fund.address, tokenId)].balance == sp.nat(0))
+      scenario.verify(token.data.ledger[(Addresses.ALICE_ADDRESS, tokenId)].balance == value)
 
     @sp.add_test(name="rescueFA2 - fails if not called by govenror")
     def test():
-    	scenario = sp.test_scenario()
+      scenario = sp.test_scenario()
 
-    	# GIVEN an FA2 token contract
-    	config = FA2.FA2_config()
-    	token = FA2.FA2(
-    		config = config,
-    		metadata = sp.utils.metadata_of_url("https://example.com"),      
-    		admin = Addresses.GOVERNOR_ADDRESS
-    	)
-    	scenario += token
+      # GIVEN an FA2 token contract
+      config = FA2.FA2_config()
+      token = FA2.FA2(
+        config = config,
+        metadata = sp.utils.metadata_of_url("https://example.com"),      
+        admin = Addresses.GOVERNOR_ADDRESS
+      )
+      scenario += token
 
 
-    	# AND a liquidity fund contract
-    	governorContractAddress = Addresses.GOVERNOR_ADDRESS
-    	fund = LiquidityFundContract(
-    		governorContractAddress = governorContractAddress
-    	)
-    	scenario += fund
+      # AND a liquidity fund contract
+      governorContractAddress = Addresses.GOVERNOR_ADDRESS
+      fund = LiquidityFundContract(
+        governorContractAddress = governorContractAddress
+      )
+      scenario += fund
 
-    	# AND the liquidity fund has tokens given to it.
-    	value = sp.nat(100)
-    	tokenId = 0
-    	scenario += token.mint(    
-    		address = fund.address,
-    		amount = value,
-    		metadata = FA2.FA2.make_metadata(
-    			name = "SomeToken",
-    			decimals = 18,
-    			symbol= "ST"
-    		),
-    		token_id = tokenId
-    	).run(
-    		sender = Addresses.GOVERNOR_ADDRESS
-    	)
+      # AND the liquidity fund has tokens given to it.
+      value = sp.nat(100)
+      tokenId = 0
+      scenario += token.mint(    
+        address = fund.address,
+        amount = value,
+        metadata = FA2.FA2.make_metadata(
+          name = "SomeToken",
+          decimals = 18,
+          symbol= "ST"
+        ),
+        token_id = tokenId
+      ).run(
+        sender = Addresses.GOVERNOR_ADDRESS
+      )
         
-    	# WHEN rescueFA2 is called by someone other than the governor
-    	# THEN the call fails
-    	notGovernor = Addresses.NULL_ADDRESS
-    	scenario += fund.rescueFA2(
-    		sp.record(
-    			destination = Addresses.ALICE_ADDRESS,
-    			amount = value,
-    			tokenId = tokenId,
-    			tokenContractAddress = token.address
-    		)
-    	).run(
-    		sender = notGovernor,
-    		valid = False,
-    		exception = Errors.NOT_GOVERNOR
-    	)    
+      # WHEN rescueFA2 is called by someone other than the governor
+      # THEN the call fails
+      notGovernor = Addresses.NULL_ADDRESS
+      scenario += fund.rescueFA2(
+        sp.record(
+          destination = Addresses.ALICE_ADDRESS,
+          amount = value,
+          tokenId = tokenId,
+          tokenContractAddress = token.address
+        )
+      ).run(
+        sender = notGovernor,
+        valid = False,
+        exception = Errors.NOT_GOVERNOR
+      )    
 
     ################################################################
     # rescueFA12
@@ -1444,111 +1433,111 @@ if __name__ == "__main__":
 
     @sp.add_test(name="rescueFA12 - rescues tokens")
     def test():
-    	scenario = sp.test_scenario()
+      scenario = sp.test_scenario()
 
-    	# GIVEN an FA1.2 token contract
-    	token_metadata = {
-    		"decimals" : "18",
-    		"name" : "SomeToken",
-    		"symbol" : "ST",
-    	}
-    	contract_metadata = {
-    		"" : "tezos-storage:data",
-    	}
-    	token = FA12.FA12(
-    		admin = Addresses.GOVERNOR_ADDRESS,
-    		token_metadata = token_metadata,
-    		contract_metadata = contract_metadata,
-    		config = FA12.FA12_config(use_token_metadata_offchain_view = False)
-    	)
-    	scenario += token
+      # GIVEN an FA1.2 token contract
+      token_metadata = {
+        "decimals" : "18",
+        "name" : "SomeToken",
+        "symbol" : "ST",
+      }
+      contract_metadata = {
+        "" : "tezos-storage:data",
+      }
+      token = FA12.FA12(
+        admin = Addresses.GOVERNOR_ADDRESS,
+        token_metadata = token_metadata,
+        contract_metadata = contract_metadata,
+        config = FA12.FA12_config(use_token_metadata_offchain_view = False)
+      )
+      scenario += token
 
-    	# AND a liquidity fund contract
-    	governorContractAddress = Addresses.GOVERNOR_ADDRESS
-    	fund = LiquidityFundContract(
-    		governorContractAddress = governorContractAddress
-    	)
-    	scenario += fund
+      # AND a liquidity fund contract
+      governorContractAddress = Addresses.GOVERNOR_ADDRESS
+      fund = LiquidityFundContract(
+        governorContractAddress = governorContractAddress
+      )
+      scenario += fund
 
-    	# AND the liquidity fund has tokens given to it.
-    	value = sp.nat(100)
-    	scenario += token.mint(
-    		sp.record(
-    			address = fund.address,
-    			value = value
-    		)
-    	).run(
-    		sender = Addresses.GOVERNOR_ADDRESS
-    	)
+      # AND the liquidity fund has tokens given to it.
+      value = sp.nat(100)
+      scenario += token.mint(
+        sp.record(
+          address = fund.address,
+          value = value
+        )
+      ).run(
+        sender = Addresses.GOVERNOR_ADDRESS
+      )
 
-    	# WHEN rescueFA12 is called
-    	scenario += fund.rescueFA12(
-    		sp.record(
-    			destination = Addresses.ALICE_ADDRESS,
-    			amount = value,
-    			tokenContractAddress = token.address
-    		)
-    	).run(
-    		sender = Addresses.GOVERNOR_ADDRESS,
-    	)    
+      # WHEN rescueFA12 is called
+      scenario += fund.rescueFA12(
+        sp.record(
+          destination = Addresses.ALICE_ADDRESS,
+          amount = value,
+          tokenContractAddress = token.address
+        )
+      ).run(
+        sender = Addresses.GOVERNOR_ADDRESS,
+      )    
 
-    	# THEN the tokens are rescued.
-    	scenario.verify(token.data.balances[fund.address].balance == sp.nat(0))
-    	scenario.verify(token.data.balances[Addresses.ALICE_ADDRESS].balance == value)
+      # THEN the tokens are rescued.
+      scenario.verify(token.data.balances[fund.address].balance == sp.nat(0))
+      scenario.verify(token.data.balances[Addresses.ALICE_ADDRESS].balance == value)
 
     @sp.add_test(name="rescueFA12 - fails to rescue if not called by governor")
     def test():
-    	scenario = sp.test_scenario()
+      scenario = sp.test_scenario()
 
-    	# GIVEN an FA1.2 token contract
-    	token_metadata = {
-    		"decimals" : "18",
-    		"name" : "SomeToken",
-    		"symbol" : "ST",
-    	}
-    	contract_metadata = {
-    		"" : "tezos-storage:data",
-    	}
-    	token = FA12.FA12(
-    		admin = Addresses.GOVERNOR_ADDRESS,
-    		token_metadata = token_metadata,
-    		contract_metadata = contract_metadata,
-    		config = FA12.FA12_config(use_token_metadata_offchain_view = False)
-    	)
-    	scenario += token
+      # GIVEN an FA1.2 token contract
+      token_metadata = {
+        "decimals" : "18",
+        "name" : "SomeToken",
+        "symbol" : "ST",
+      }
+      contract_metadata = {
+        "" : "tezos-storage:data",
+      }
+      token = FA12.FA12(
+        admin = Addresses.GOVERNOR_ADDRESS,
+        token_metadata = token_metadata,
+        contract_metadata = contract_metadata,
+        config = FA12.FA12_config(use_token_metadata_offchain_view = False)
+      )
+      scenario += token
 
-    	# AND a liquidity fund contract
-    	governorContractAddress = Addresses.GOVERNOR_ADDRESS
-    	fund = LiquidityFundContract(
-    		governorContractAddress = governorContractAddress
-    	)
-    	scenario += fund
+      # AND a liquidity fund contract
+      governorContractAddress = Addresses.GOVERNOR_ADDRESS
+      fund = LiquidityFundContract(
+        governorContractAddress = governorContractAddress
+      )
+      scenario += fund
 
-    	# AND the liquidity fund has tokens given to it.
-    	value = sp.nat(100)
-    	scenario += token.mint(
-    		sp.record(
-    			address = fund.address,
-    			value = value
-    		)
-    	).run(
-    		sender = Addresses.GOVERNOR_ADDRESS
-    	)
+      # AND the liquidity fund has tokens given to it.
+      value = sp.nat(100)
+      scenario += token.mint(
+        sp.record(
+          address = fund.address,
+          value = value
+        )
+      ).run(
+        sender = Addresses.GOVERNOR_ADDRESS
+      )
 
-    	# WHEN rescueFA12 is called by someone other than the governor.
-    	# THEN the call fails
-    	notGovernor = Addresses.NULL_ADDRESS
-    	scenario += fund.rescueFA12(
-    		sp.record(
-    			destination = Addresses.ALICE_ADDRESS,
-    			amount = value,
-    			tokenContractAddress = token.address
-    		)
-    	).run(
-    		sender = notGovernor,
-    		valid = False,
-    		exception = Errors.NOT_GOVERNOR
-    	)    
+      # WHEN rescueFA12 is called by someone other than the governor.
+      # THEN the call fails
+      notGovernor = Addresses.NULL_ADDRESS
+      scenario += fund.rescueFA12(
+        sp.record(
+          destination = Addresses.ALICE_ADDRESS,
+          amount = value,
+          tokenContractAddress = token.address
+        )
+      ).run(
+        sender = notGovernor,
+        valid = False,
+        exception = Errors.NOT_GOVERNOR
+      )    
 
     ################################################################
     # sendAllTokens
@@ -1556,124 +1545,124 @@ if __name__ == "__main__":
 
     @sp.add_test(name="sendAllTokens - succeeds when called by governor")
     def test():
-    	scenario = sp.test_scenario()
+      scenario = sp.test_scenario()
 
-    	# GIVEN a Token contract in the idle state
-    	governorAddress = Addresses.GOVERNOR_ADDRESS
-    	token = Token.FA12(
-    		admin = governorAddress
-    	)
-    	scenario += token
+      # GIVEN a Token contract in the idle state
+      governorAddress = Addresses.GOVERNOR_ADDRESS
+      token = Token.FA12(
+        admin = governorAddress
+      )
+      scenario += token
 
-    	# AND a LiquidityFund contract in the IDLE state
-    	fund = LiquidityFundContract(
-    		governorContractAddress = governorAddress,
-    		tokenContractAddress = token.address,
+      # AND a LiquidityFund contract in the IDLE state
+      fund = LiquidityFundContract(
+        governorContractAddress = governorAddress,
+        tokenContractAddress = token.address,
 
-    		state = IDLE,
-    		sendAllTokens_destination = sp.none
-    	)
-    	scenario += fund
+        state = IDLE,
+        sendAllTokens_destination = sp.none
+      )
+      scenario += fund
 
-    	# AND the fund has $1000 of tokens.
-    	fundTokens = 1000 * Constants.PRECISION 
-    	mintForFundParam = sp.record(address = fund.address, value = fundTokens)
-    	scenario += token.mint(mintForFundParam).run(
-    		sender = governorAddress
-    	)
+      # AND the fund has $1000 of tokens.
+      fundTokens = 1000 * Constants.PRECISION 
+      mintForFundParam = sp.record(address = fund.address, value = fundTokens)
+      scenario += token.mint(mintForFundParam).run(
+        sender = governorAddress
+      )
 
-    	# WHEN sendAllTokens is called
-    	destination = Addresses.ALICE_ADDRESS
-    	scenario += fund.sendAllTokens(destination).run(
-    		sender = governorAddress,
-    	)
+      # WHEN sendAllTokens is called
+      destination = Addresses.ALICE_ADDRESS
+      scenario += fund.sendAllTokens(destination).run(
+        sender = governorAddress,
+      )
 
-    	# THEN the fund is zero'ed
-    	scenario.verify(token.data.balances[fund.address].balance == 0)
+      # THEN the fund is zero'ed
+      scenario.verify(token.data.balances[fund.address].balance == 0)
 
-    	# AND the receiver was credited all of the tokens.
-    	scenario.verify(token.data.balances[destination].balance == fundTokens)
+      # AND the receiver was credited all of the tokens.
+      scenario.verify(token.data.balances[destination].balance == fundTokens)
 
-    	# AND the state is reset
-    	scenario.verify(fund.data.state == IDLE)
-    	scenario.verify(fund.data.sendAllTokens_destination == sp.none)
+      # AND the state is reset
+      scenario.verify(fund.data.state == IDLE)
+      scenario.verify(fund.data.sendAllTokens_destination == sp.none)
 
     @sp.add_test(name="sendAllTokens - fails when not called by governor")
     def test():
-    	scenario = sp.test_scenario()
+      scenario = sp.test_scenario()
 
-    	# GIVEN a Token contract in the idle state
-    	governorAddress = Addresses.GOVERNOR_ADDRESS
-    	token = Token.FA12(
-    		admin = governorAddress
-    	)
-    	scenario += token
+      # GIVEN a Token contract in the idle state
+      governorAddress = Addresses.GOVERNOR_ADDRESS
+      token = Token.FA12(
+        admin = governorAddress
+      )
+      scenario += token
 
-    	# AND a LiquidityFund contract in the IDLE state
-    	fund = LiquidityFundContract(
-    		governorContractAddress = governorAddress,
-    		tokenContractAddress = token.address,
+      # AND a LiquidityFund contract in the IDLE state
+      fund = LiquidityFundContract(
+        governorContractAddress = governorAddress,
+        tokenContractAddress = token.address,
 
-    		state = IDLE,
-    		sendAllTokens_destination = sp.none
-    	)
-    	scenario += fund
+        state = IDLE,
+        sendAllTokens_destination = sp.none
+      )
+      scenario += fund
 
-    	# AND the fund has $1000 of tokens.
-    	fundTokens = 1000 * Constants.PRECISION 
-    	mintForFundParam = sp.record(address = fund.address, value = fundTokens)
-    	scenario += token.mint(mintForFundParam).run(
-    		sender = governorAddress
-    	)
+      # AND the fund has $1000 of tokens.
+      fundTokens = 1000 * Constants.PRECISION 
+      mintForFundParam = sp.record(address = fund.address, value = fundTokens)
+      scenario += token.mint(mintForFundParam).run(
+        sender = governorAddress
+      )
 
-    	# WHEN sendAllTokens is called by someone other than the governor
-    	# THEN the call fails with NOT_GOVERNOR
-    	destination = Addresses.ALICE_ADDRESS
-    	notGovernor = Addresses.NULL_ADDRESS
-    	scenario += fund.sendAllTokens(destination).run(
-    		sender = notGovernor,
+      # WHEN sendAllTokens is called by someone other than the governor
+      # THEN the call fails with NOT_GOVERNOR
+      destination = Addresses.ALICE_ADDRESS
+      notGovernor = Addresses.NULL_ADDRESS
+      scenario += fund.sendAllTokens(destination).run(
+        sender = notGovernor,
 
-    		valid = False,
-    		exception = Errors.NOT_GOVERNOR
-    	)
+        valid = False,
+        exception = Errors.NOT_GOVERNOR
+      )
 
     @sp.add_test(name="sendAllTokens - fails in bad state")
     def test():
-    	scenario = sp.test_scenario()
+      scenario = sp.test_scenario()
 
-    	# GIVEN a Token contract in the idle state
-    	governorAddress = Addresses.GOVERNOR_ADDRESS
-    	token = Token.FA12(
-    		admin = governorAddress
-    	)
-    	scenario += token
+      # GIVEN a Token contract in the idle state
+      governorAddress = Addresses.GOVERNOR_ADDRESS
+      token = Token.FA12(
+        admin = governorAddress
+      )
+      scenario += token
 
-    	# AND a LiquidityFund contract in the WAITING_FOR_TOKEN_BALANCE state
-    	destination = Addresses.ALICE_ADDRESS
-    	fund = LiquidityFundContract(
-    		governorContractAddress = governorAddress,
-    		tokenContractAddress = token.address,
+      # AND a LiquidityFund contract in the WAITING_FOR_TOKEN_BALANCE state
+      destination = Addresses.ALICE_ADDRESS
+      fund = LiquidityFundContract(
+        governorContractAddress = governorAddress,
+        tokenContractAddress = token.address,
 
-    		state = WAITING_FOR_TOKEN_BALANCE,
-    		sendAllTokens_destination = sp.some(destination)
-    	)
-    	scenario += fund
+        state = WAITING_FOR_TOKEN_BALANCE,
+        sendAllTokens_destination = sp.some(destination)
+      )
+      scenario += fund
 
-    	# AND the fund has $1000 of tokens.
-    	fundTokens = 1000 * Constants.PRECISION 
-    	mintForFundParam = sp.record(address = fund.address, value = fundTokens)
-    	scenario += token.mint(mintForFundParam).run(
-    		sender = governorAddress
-    	)
+      # AND the fund has $1000 of tokens.
+      fundTokens = 1000 * Constants.PRECISION 
+      mintForFundParam = sp.record(address = fund.address, value = fundTokens)
+      scenario += token.mint(mintForFundParam).run(
+        sender = governorAddress
+      )
 
-    	# WHEN sendAllTokens is called
-    	# THEN the call fails with BAD_STATE
-    	scenario += fund.sendAllTokens(destination).run(
-    		sender = governorAddress,
+      # WHEN sendAllTokens is called
+      # THEN the call fails with BAD_STATE
+      scenario += fund.sendAllTokens(destination).run(
+        sender = governorAddress,
 
-    		valid = False,
-    		exception = Errors.BAD_STATE
-    	) 
+        valid = False,
+        exception = Errors.BAD_STATE
+      ) 
 
     ################################################################
     # sendAllTokens_callback
@@ -1681,123 +1670,123 @@ if __name__ == "__main__":
 
     @sp.add_test(name="sendAllTokens_callback - sends the token balance")
     def test():
-    	scenario = sp.test_scenario()
+      scenario = sp.test_scenario()
 
-    	# GIVEN a Token contract.
-    	governorAddress = Addresses.GOVERNOR_ADDRESS
-    	token = Token.FA12(
-    		admin = governorAddress
-    	)
-    	scenario += token
+      # GIVEN a Token contract.
+      governorAddress = Addresses.GOVERNOR_ADDRESS
+      token = Token.FA12(
+        admin = governorAddress
+      )
+      scenario += token
 
-    	# AND a LiquidityFund contract that is waiting to send a balance to Alice
-    	recipientAddress = Addresses.ALICE_ADDRESS 
-    	fund = LiquidityFundContract(
-    		governorContractAddress = governorAddress,
-    		tokenContractAddress = token.address,
+      # AND a LiquidityFund contract that is waiting to send a balance to Alice
+      recipientAddress = Addresses.ALICE_ADDRESS 
+      fund = LiquidityFundContract(
+        governorContractAddress = governorAddress,
+        tokenContractAddress = token.address,
 
-    		state = WAITING_FOR_TOKEN_BALANCE,
-    		sendAllTokens_destination = sp.some(recipientAddress)
-    	)
-    	scenario += fund
+        state = WAITING_FOR_TOKEN_BALANCE,
+        sendAllTokens_destination = sp.some(recipientAddress)
+      )
+      scenario += fund
 
-    	# AND the fund has $1000 of tokens.
-    	fundTokens = 1000 * Constants.PRECISION 
-    	mintForFundParam = sp.record(address = fund.address, value = fundTokens)
-    	scenario += token.mint(mintForFundParam).run(
-    		sender = governorAddress
-    	)
+      # AND the fund has $1000 of tokens.
+      fundTokens = 1000 * Constants.PRECISION 
+      mintForFundParam = sp.record(address = fund.address, value = fundTokens)
+      scenario += token.mint(mintForFundParam).run(
+        sender = governorAddress
+      )
 
-    	# WHEN sendAllTokens_callback is called by the token contract
-    	scenario += fund.sendAllTokens_callback(fundTokens).run(
-    		sender = token.address,
-    	)
+      # WHEN sendAllTokens_callback is called by the token contract
+      scenario += fund.sendAllTokens_callback(fundTokens).run(
+        sender = token.address,
+      )
 
-    	# THEN the fund is zero'ed
-    	scenario.verify(token.data.balances[fund.address].balance == 0)
+      # THEN the fund is zero'ed
+      scenario.verify(token.data.balances[fund.address].balance == 0)
 
-    	# AND the recipient was credited the tokens.
-    	scenario.verify(token.data.balances[recipientAddress].balance == fundTokens)
+      # AND the recipient was credited the tokens.
+      scenario.verify(token.data.balances[recipientAddress].balance == fundTokens)
 
-    	# AND the state is reset
-    	scenario.verify(fund.data.state == IDLE)
-    	scenario.verify(fund.data.sendAllTokens_destination == sp.none)
+      # AND the state is reset
+      scenario.verify(fund.data.state == IDLE)
+      scenario.verify(fund.data.sendAllTokens_destination == sp.none)
 
     @sp.add_test(name="sendAllTokens_callback - fails if sender is not the token contract")
     def test():
-    	scenario = sp.test_scenario()
+      scenario = sp.test_scenario()
 
-    	# GIVEN a Token contract.
-    	governorAddress = Addresses.GOVERNOR_ADDRESS
-    	token = Token.FA12(
-    		admin = governorAddress
-    	)
-    	scenario += token
+      # GIVEN a Token contract.
+      governorAddress = Addresses.GOVERNOR_ADDRESS
+      token = Token.FA12(
+        admin = governorAddress
+      )
+      scenario += token
 
-    	# AND a LiquidityFund contract that is waiting to send a balance to Alice
-    	recipientAddress = Addresses.ALICE_ADDRESS 
-    	fund = LiquidityFundContract(
-    		governorContractAddress = governorAddress,
-    		tokenContractAddress = token.address,
+      # AND a LiquidityFund contract that is waiting to send a balance to Alice
+      recipientAddress = Addresses.ALICE_ADDRESS 
+      fund = LiquidityFundContract(
+        governorContractAddress = governorAddress,
+        tokenContractAddress = token.address,
 
-    		state = WAITING_FOR_TOKEN_BALANCE,
-    		sendAllTokens_destination = sp.some(recipientAddress)
-    	)
-    	scenario += fund
+        state = WAITING_FOR_TOKEN_BALANCE,
+        sendAllTokens_destination = sp.some(recipientAddress)
+      )
+      scenario += fund
 
-    	# AND the fund has $1000 of tokens.
-    	fundTokens = 1000 * Constants.PRECISION 
-    	mintForFundParam = sp.record(address = fund.address, value = fundTokens)
-    	scenario += token.mint(mintForFundParam).run(
-    		sender = governorAddress
-    	)
+      # AND the fund has $1000 of tokens.
+      fundTokens = 1000 * Constants.PRECISION 
+      mintForFundParam = sp.record(address = fund.address, value = fundTokens)
+      scenario += token.mint(mintForFundParam).run(
+        sender = governorAddress
+      )
 
-    	# WHEN sendAllTokens_callback is called by someone other than the token contract
-    	# THEN the call fails with BAD_SENDER
-    	notToken = Addresses.NULL_ADDRESS
-    	scenario += fund.sendAllTokens_callback(fundTokens).run(
-    		sender = notToken,
+      # WHEN sendAllTokens_callback is called by someone other than the token contract
+      # THEN the call fails with BAD_SENDER
+      notToken = Addresses.NULL_ADDRESS
+      scenario += fund.sendAllTokens_callback(fundTokens).run(
+        sender = notToken,
 
-    		valid = False,
-    		exception = Errors.BAD_SENDER
-    	)
+        valid = False,
+        exception = Errors.BAD_SENDER
+      )
 
     @sp.add_test(name="sendAllTokens_callback - fails in wrong state")
     def test():
-    	scenario = sp.test_scenario()
+      scenario = sp.test_scenario()
 
-    	# GIVEN a Token contract.
-    	governorAddress = Addresses.GOVERNOR_ADDRESS
-    	token = Token.FA12(
-    		admin = governorAddress
-    	)
-    	scenario += token
+      # GIVEN a Token contract.
+      governorAddress = Addresses.GOVERNOR_ADDRESS
+      token = Token.FA12(
+        admin = governorAddress
+      )
+      scenario += token
 
-    	# AND a LiquidityFund contract that is in the idle state
-    	recipientAddress = Addresses.ALICE_ADDRESS 
-    	fund = LiquidityFundContract(
-    		governorContractAddress = governorAddress,
-    		tokenContractAddress = token.address,
+      # AND a LiquidityFund contract that is in the idle state
+      recipientAddress = Addresses.ALICE_ADDRESS 
+      fund = LiquidityFundContract(
+        governorContractAddress = governorAddress,
+        tokenContractAddress = token.address,
 
-    		state = IDLE,
-    		sendAllTokens_destination = sp.none
-    	)
-    	scenario += fund
+        state = IDLE,
+        sendAllTokens_destination = sp.none
+      )
+      scenario += fund
 
-    	# AND the fund has $1000 of tokens.
-    	fundTokens = 1000 * Constants.PRECISION 
-    	mintForFundParam = sp.record(address = fund.address, value = fundTokens)
-    	scenario += token.mint(mintForFundParam).run(
-    		sender = governorAddress
-    	)
+      # AND the fund has $1000 of tokens.
+      fundTokens = 1000 * Constants.PRECISION 
+      mintForFundParam = sp.record(address = fund.address, value = fundTokens)
+      scenario += token.mint(mintForFundParam).run(
+        sender = governorAddress
+      )
 
-    	# WHEN sendAllTokens_callback is called by the token contract
-    	# THEN the call fails with BAD_STATE
-    	scenario += fund.sendAllTokens_callback(fundTokens).run(
-    		sender = token.address,
+      # WHEN sendAllTokens_callback is called by the token contract
+      # THEN the call fails with BAD_STATE
+      scenario += fund.sendAllTokens_callback(fundTokens).run(
+        sender = token.address,
 
-    		valid = False,
-    		exception = Errors.BAD_STATE
-    	)          
+        valid = False,
+        exception = Errors.BAD_STATE
+      )          
 
     sp.add_compilation_target("liquidity-fund", LiquidityFundContract())
