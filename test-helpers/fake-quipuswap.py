@@ -11,7 +11,12 @@ class FakeQuipuswapContract(sp.Contract):
         self.init(
             amountOut = sp.nat(0),
             destination = Addresses.NULL_ADDRESS,
-            amountInvested = sp.nat(0)
+            amountInvested = sp.nat(0),
+            voteAmount = sp.nat(0),
+            voteCandidate = sp.key_hash('tz1VQnqCCqX4K5sP3FNkVSNKTdCAMJDd3E1n'),
+            voteAddress = Addresses.NULL_ADDRESS,
+            vetoAmount = sp.nat(0),
+            vetoAddress = Addresses.NULL_ADDRESS
         )
 
     # Update - Not implemented
@@ -53,16 +58,18 @@ class FakeQuipuswapContract(sp.Contract):
 
     # Fake entrypoint to vote. captures parameters for inspection.
     @sp.entry_point
-    def vote(self, requestPair):
-        sp.set_type(requestPair,  sp.TPair(sp.TNat, sp.TAddress))
+    def vote(self, requestTup):
+        sp.set_type(requestTup,  sp.TPair(sp.TPair(sp.TKeyHash, sp.TNat), sp.TAddress))
 
-        self.data.amountOut = sp.fst(requestPair)
-        self.data.destination = sp.snd(requestPair)
+        self.data.voteAmount = sp.snd(sp.fst(requestTup))
+        self.data.voteCandidate = sp.fst(sp.fst(requestTup))
+        self.data.voteAddress = sp.snd(requestTup)
+
 
     # Fake entrypoint to veto. captures parameters for inspection.
     @sp.entry_point
     def veto(self, requestPair):
         sp.set_type(requestPair,  sp.TPair(sp.TNat, sp.TAddress))
 
-        self.data.amountOut = sp.fst(requestPair)
-        self.data.destination = sp.snd(requestPair)
+        self.data.vetoAmount = sp.fst(requestPair)
+        self.data.vetoAddress = sp.snd(requestPair)
