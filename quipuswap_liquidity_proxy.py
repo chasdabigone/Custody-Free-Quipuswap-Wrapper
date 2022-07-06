@@ -753,6 +753,38 @@ if __name__ == "__main__":
             valid = True
         )
 
+    @sp.add_test(name="vote - passes correct parameters")
+    def test():
+        scenario = sp.test_scenario()
+
+        # GIVEN a Quipuswap AMM contract
+        quipuswap = FakeQuipuswap.FakeQuipuswapContract()
+        scenario += quipuswap
+
+        # AND a LiquidityFund with a governor
+        governor = Addresses.GOVERNOR_ADDRESS
+        fund = LiquidityFundContract(
+            governorContractAddress = governor,
+            quipuswapContractAddress = quipuswap.address
+        )
+        scenario += fund
+
+        # WHEN vote is called by the governor THEN the invocation passes parameters to the Quipuswap AMM.
+        someValue = sp.nat(1000000)
+        selfAddr = governor
+        bakerHash = Addresses.BAKER_KEY_HASH
+        param = sp.record( 
+            candidate = bakerHash,
+            value = someValue,
+            voter = selfAddr
+            )         
+        scenario += fund.vote(param).run(
+            sender = governor,
+        )
+        scenario.verify(quipuswap.data.voteAmount == someValue)
+        scenario.verify(quipuswap.data.voteCandidate == bakerHash)
+        scenario.verify(quipuswap.data.voteAddress == selfAddr)
+        
     ################################################################
     # veto
     ################################################################
@@ -802,7 +834,36 @@ if __name__ == "__main__":
             sender = executor,
             valid = True
         )
+        
+    @sp.add_test(name="veto - passes correct parameters")
+    def test():
+        scenario = sp.test_scenario()
 
+        # GIVEN a Quipuswap AMM contract
+        quipuswap = FakeQuipuswap.FakeQuipuswapContract()
+        scenario += quipuswap
+
+        # AND a LiquidityFund with a executor
+        executor = Addresses.EXECUTOR_ADDRESS
+        fund = LiquidityFundContract(
+            executorContractAddress = executor,
+            quipuswapContractAddress = quipuswap.address
+        )
+        scenario += fund
+
+        # WHEN veto is called by  the executor THEN the invocation passes parameters to the Quipuswap AMM.
+        someValue = sp.nat(1000000)
+        selfAddr = executor
+        param = sp.record( 
+            value = someValue,
+            voter = selfAddr
+            )         
+        scenario += fund.veto(param).run(
+            sender = executor,
+        )
+        scenario.verify(quipuswap.data.vetoAmount == someValue)
+        scenario.verify(quipuswap.data.vetoAddress == selfAddr)
+        
     ################################################################
     # setDelegate
     ################################################################
