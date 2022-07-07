@@ -58,9 +58,9 @@ The MakerContract stores the following:<br>
 `tokenAddress` (address): The address of the FA1.2 token<br>
 `lastTradeTime` (timestamp): The last time a trade was successfully executed.<br>
 `paused` (bool): Whether the contract is paused or not.<br>
-`tokenPrecision`: The precision of the token. Only used in testing.<br>
-`tokenBalance`: The balance stored during balance request callback.<br>
-`spotPrice`: The spot price stored when `view`ing the Harbinger spot contract.<br>
+`tokenPrecision`(nat): The precision of the token. Only used in testing.<br>
+`tokenBalance`(nat): The balance stored during balance request callback.<br>
+`spotPrice`(nat): The spot price stored when `view`ing the Harbinger spot contract.<br>
 
 ## Entrypoints
 
