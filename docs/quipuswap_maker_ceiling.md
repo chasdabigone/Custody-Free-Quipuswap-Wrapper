@@ -9,7 +9,7 @@
 * **This contract acts as a market maker providing single-sided liquidity to the kUSD/XTZ Quipuswap pair**
 * **The market making ceiling contract allows any party to invoke a function that will swap tokens in the contract for XTZ on behalf of the contract, as long as certain conditions are met**
 * **The risk mitigation parameters can be understood as ways to make the execution fail. If the parameters are riskier, it will be easier to execute the swap, and vice versa**
-* **Finding the right balance of parameters is important, and this balance will differ depending on the specific goals of the swap, along with external factors**
+* **Finding the right balance of parameters is important, and this balance will differ depending on the specific goals of the swap, along with external factors. It is recommended to start with very conservative parameters**
 
 ## Risk Mitigation Parameters
 
