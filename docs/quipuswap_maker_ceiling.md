@@ -62,6 +62,27 @@ The MakerContract stores the following:<br>
 `tokenBalance`: The balance stored during balance request callback.<br>
 `spotPrice`: The spot price stored when `view`ing the Harbinger spot contract.<br>
 
+## Entrypoints
+
+The MakerContract has the following entrypoints:<br>
+`pause`: Pauses the contract. Can only be called by the Pause Guardian
+`redeemCallback`: Private callback for FA1.2
+`returnBalance`: Get the FA1.2 token balance. 
+`setGovernorContract`: set the governor contract address. Can only be called by the Governor
+`setMaxDataDelaySec`: set the maximum data delay. Can only be called by the Governor
+`setMinTradeDelaySec`: set the minimum time between trades. Can only be called by the Governor.
+`setPauseGuardianContract`: set the pause guardian address. Can only be called by the Governor.
+`setQuipuswapContract`: set the quipuswap AMM address. Can only be called by the Governor.
+`setReceiverContract`: set the receiver contract address. Can only be called by the Governor.
+`setSpotContract`: set the Harbinger Spot storage address. Can only be called by the Governor.
+`setSpreadAmount`: set the maximum spread amount with which a swap will be allowed. Can only be called by the Governor.
+`setTokenPrecision`: set the token precision. Can only be called by the Governor. Used for testing.
+`setTradeAmount`: set the trade amount per swap. Can only be called by the Governor.
+`setVolatilityTolerance`: set the tolerance in percent for volatility between Normalizer and Spot oracles. Can only be called by the Governor.
+`setVwapContract`: set the Harbinger Normalizer address. Can only be called by the Governor.
+`tokenToTezPayment`: attempt a swap on the Quipuswap AMM. Can be called by anyone.
+`unpause`: unpause the contract. Can only be called by the Governor.
+
 ## Attribution
 
 This contract is based on [a contract by Hover Labs](https://github.com/Hover-Labs/kolibri-contracts/blob/keefertaylor/quipu-proxy/smart_contracts/quipuswap-proxy.py)
