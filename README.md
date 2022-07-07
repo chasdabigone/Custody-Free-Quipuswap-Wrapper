@@ -17,7 +17,7 @@ Set the addresses in `common/addresses.py` and deploy.
 More detailed docs for each contract are available at:
 
 [Quipuswap Liquidity Proxy Documentation](https://github.com/chasdabigone/Custody-Free-Quipuswap-Wrapper/blob/main/docs/quipuswap_liquidity_proxy.md)<br>
-[Quipuswap Maker Ceiling Documentation] (INSERT LINK)
+[Quipuswap Maker Ceiling Documentation](https://github.com/chasdabigone/Custody-Free-Quipuswap-Wrapper/blob/main/docs/quipuswap_maker_ceiling.md)
 
 ## Licenses and attribution
 
