@@ -23,6 +23,8 @@
 
 `minTradeDelaySec`: The amount of time in seconds that must pass before another swap is allowed.
 
+In addition, risk can be mitigated by only keeping a certain balance available in the contract at any one time.
+
 
 ## Example configurations
 * **Bailout fund** - similar to Youves' bailout system, a high spread amount and trade delay of 0 allows batch swaps when someone needs to buy a lot of kUSD at a high premium.<br>
