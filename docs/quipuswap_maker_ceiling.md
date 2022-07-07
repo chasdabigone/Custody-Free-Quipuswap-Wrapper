@@ -4,25 +4,21 @@
 
 **USE THIS CONTRACT WITH CAUTION! THERE IS RISK WHEN SWAPPING TOKENS. IT IS UP TO THE USERS TO MANAGE THE RISK APPROPRIATELY. THIS CONTRACT DOES NOT ELIMINATE RISK, IT ONLY PROVIDES TOOLS FOR MANAGING RISK**
 
-<br>
-
-* **This contract acts as a market maker providing single-sided liquidity to the kUSD/XTZ Quipuswap pair**
+* **This MakerContract acts as a market maker providing single-sided liquidity to the kUSD/XTZ Quipuswap pair**
 * **The market making ceiling contract allows any party to invoke a function that will swap tokens in the contract for XTZ on behalf of the contract, as long as certain conditions are met**
 * **The risk mitigation parameters can be understood as ways to make the execution fail. If the parameters are riskier, it will be easier to execute the swap. Conservative parameters make the swap more difficult to execute.**
 * **Finding the right balance of parameters is important, and this balance will differ depending on the specific goals of the swap, along with external factors. It is recommended to start with a conservative configuration**
 
+The governor can utilize all functions. Anyone can execute the `tokenToTezPayment()` function which acts as a wrapper for the Quipuswap function of the same name.<br>
+Governor should be a higher privileged multi-sig or DAO with a time lock.
+
 ## Risk Mitigation Parameters
 
-`spreadAmount`: The amount in percent that the kUSD price on Quipuswap must be above the Harbinger Spot price before a swap will be allowed.
-
-`volatilityTolerance`: The range in percent that the Harbinger Normalizer price must be relative to Harbinger Spot price (volatility between normalizer and spot)
-
-`tradeAmount`: The amount of tokens to trade in each transaction, normalized.
-
-`maxDataDelaySec`: The amount of time in seconds before Harbinger data is considered stale.
-
-`minTradeDelaySec`: The amount of time in seconds that must pass before another swap is allowed.
-
+`spreadAmount`: The amount in percent that the kUSD price on Quipuswap must be above the Harbinger Spot price before a swap will be allowed.<br>
+`volatilityTolerance`: The range in percent that the Harbinger Normalizer price must be relative to Harbinger Spot price (volatility between normalizer and spot)<br>
+`tradeAmount`: The amount of tokens to trade in each transaction, normalized.<br>
+`maxDataDelaySec`: The amount of time in seconds before Harbinger data is considered stale.<br>
+`minTradeDelaySec`: The amount of time in seconds that must pass before another swap is allowed.<br><br>
 In addition, risk can be mitigated by only keeping a certain balance available in the contract at any one time.
 
 
@@ -33,6 +29,38 @@ In addition, risk can be mitigated by only keeping a certain balance available i
  `spreadAmount=6`, `volatilityTolerance=3`, `tradeAmount=1000`, `maxDataDelaySec=180`, `minTradeDelaySec=180`
 * **Fire sale** - an example of trying to sell tokens very quickly, at a price at least equal to the Harbinger price. Note that as spread decreases we decrease the maximum data delay to offset some of the added risk. Since the objective is to fire sale, we allow batch swaps with a trade delay of 0.
  `spreadAmount=0`, `volatilityTolerance=3`, `tradeAmount=500`, `maxDataDelaySec=120`, `minTradeDelaySec=0`
+ 
+## Pros and cons vs OTC multisig swap
+**Pros**: provide liquidity to those who need it most (those willing to pay more), eliminate custodial middleman (multisig), keep fees with Quipuswap LPers, provide confidence that liquidity will be available to pay loans during market downturns
+
+**Cons**: Adds oracle risk, adds complexity
+
+## Core Upgrade Path
+
+Any contract which needs to interact with a MakerContract should have a governable reference to the MakerContract.
+
+If a new MakerContract contract is needed then: (1) A new MakerContract contract would be deployed (2) The Governor would update every contract that interacts with the MakerContract to point to the new MakerContract. (3) The Governor would transfer existing tokens to the new MakerContract
+
+## Storage
+The MakerContract stores the following:<br>
+`spreadAmount`: The amount in percent that the kUSD price on Quipuswap must be above the Harbinger Spot price before a swap will be allowed.<br>
+`volatilityTolerance`: The range in percent that the Harbinger Normalizer price must be relative to Harbinger Spot price (volatility between normalizer and spot)<br>
+`maxDataDelaySec`: The amount of time in seconds before Harbinger data is considered stale.<br>
+`minTradeDelaySec`: The amount of time in seconds that must pass before another swap is allowed.<br>
+`tradeAmount`: The amount of tokens to trade in each transaction, normalized.<br>
+
+`governorContractAddress` (address): The Governor<br>
+`vwapContractAddress` (address): The address of the Harbinger Normalizer<br>
+`spotContractAddress` (address): The address of the Harbinger Spot storage<br>
+`pauseGuardianContractAddress` (address): The address of a pause guardian<br>
+`quipuswapContractAddress` (address): The address of a Quipuswap AMM<br>
+`receiverContractAddress` (address): The address that will receive the output XTZ from the Quipuswap AMM<br>
+`tokenAddress` (address): The address of the FA1.2 token<br>
+`lastTradeTime` (timestamp): The last time a trade was successfully executed.<br>
+`paused` (bool): Whether the contract is paused or not.<br>
+`tokenPrecision`: The precision of the token. Only used in testing.<br>
+`tokenBalance`: The balance stored during balance request callback.<br>
+`spotPrice`: The spot price stored when `view`ing the Harbinger spot contract.<br>
 
 ## Attribution
 
