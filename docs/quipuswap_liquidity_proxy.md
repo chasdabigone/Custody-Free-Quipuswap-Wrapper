@@ -17,7 +17,7 @@ Executor should be a multi-sig or governance function controlled without a time 
 
 **ACL Checking**
 
-Anyone may deposit XTZ into a LiquidityFund.
+Anyone may deposit XTZ or tokens into a LiquidityFund.
 
 The Governor can utilize the `divestLiquidity`, `vote`, and `claimRewards` functions that are wrappers for the Quipuswap AMM DEX. The Governor can choose the baker for the LiquidityFund. The Governor can change the executor and other contract references. The Governor can also disburse funds.
 
