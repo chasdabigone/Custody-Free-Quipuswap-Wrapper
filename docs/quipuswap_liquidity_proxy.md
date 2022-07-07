@@ -1,7 +1,7 @@
 # Quipuswap-Liquidity-Proxy
 This contract is a fork of https://github.com/Hover-Labs/kolibri-contracts/blob/master/smart_contracts/dev-fund.py
 
-**Overview**
+## Overview
 
 A LiquidityFund contract collects funds in kUSD and XTZ for interaction with a Quipuswap AMM Contract.
 
@@ -15,23 +15,23 @@ The LiquidityFund contract has two permissions on it:
 
 Executor should be a multi-sig or governance function controlled without a time delay, while Governor should be a higher privileged multi-sig or DAO with a time lock.
 
-**ACL Checking**
+## ACL Checking
 
 Anyone may deposit XTZ or tokens into a LiquidityFund.
 
 The Governor can utilize the `divestLiquidity`, `vote`, and `claimRewards` functions that are wrappers for the Quipuswap AMM DEX. The Governor can choose the baker for the LiquidityFund. The Governor can change the executor and other contract references. The Governor can also disburse funds.
 
-**Core Upgrade Path**
+## Core Upgrade Path
 
 Any contract which needs to interact with a LiquidityFund should have a governable reference to the LiquidityFund.
 
 If a new LiquidityFund contract is needed then: (1) A new LiquidityFund contract would be deployed (2) The Governor would update every contract that interacts with the LiquidityFund to point to the new LiquidityFund. (3) The Governor would transfer existing tokens and XTZ to the new LiquidityFund
 
-**State Machine**
+## State Machine
 
 The LiquidityFund contract has a state machine for utilizing the `sendAllTokens()` and `sendAllTokens_callback()` functions.
 
-**Storage**
+## Storage
 
 The LiquidityFund contract stores the following:
 
@@ -58,7 +58,7 @@ Other storage:
 
 `sendAllTokens_destination`: for sendAllTokens callback
 
-**Entrypoints**
+## Entrypoints
 
 The LiquidityFund contract has the following entrypoints:
 
