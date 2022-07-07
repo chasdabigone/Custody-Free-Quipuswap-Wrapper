@@ -1,4 +1,4 @@
-### Quipuswap Maker Ceiling
+# Quipuswap Maker Ceiling
 
 ## Overview
 
