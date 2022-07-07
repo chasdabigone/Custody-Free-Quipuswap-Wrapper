@@ -1,7 +1,7 @@
 import smartpy as sp
 
 # The fixed point number representing 1 in the system, 10^18
-PRECISION = sp.nat(1000000000000000000)
+PRECISION = sp.nat(1_000_000_000_000_000_000)
 
 # The asset pair reported by Harbinger.
 ASSET_CODE = "XTZ-USD"
