@@ -24,7 +24,7 @@ class MakerContract(sp.Contract):
 
     paused = False,
 
-    tokenPrecision = sp.nat(1000000000000000000), # 18 decimals
+    tokenPrecision = Constants.PRECISION, # 18 decimals
     tokenBalance = sp.nat(0), # this should be 0 when deployed
     tokenAddress = Addresses.TOKEN_ADDRESS,
 
@@ -129,8 +129,8 @@ class MakerContract(sp.Contract):
     sp.verify(dataAge <= self.data.maxDataDelaySec, Errors.STALE_DATA)
   
     # Upsample price numbers to have tokenPrecision digits of precision
-    harbingerVwapPrice = (sp.snd(harbingerVwap) * self.data.tokenPrecision) // 1000000
-    harbingerSpotPrice = (self.data.spotPrice * self.data.tokenPrecision) // 1000000
+    harbingerVwapPrice = (sp.snd(harbingerVwap) * self.data.tokenPrecision) // 1_000_000
+    harbingerSpotPrice = (self.data.spotPrice * self.data.tokenPrecision) // 1_000_000
 
     # Check for volatility difference between VWAP and spot
     volatilityDifference = (abs(harbingerVwapPrice - harbingerSpotPrice) * 100 // harbingerSpotPrice) # because tolerance is a percent
@@ -141,7 +141,7 @@ class MakerContract(sp.Contract):
 
     # Calculate the expected XTZ with no slippage.
     # Expected out with no slippage = (number of tokens to trade // mutez Spot price) / 1e6
-    neutralOut = (tokensToTrade // self.data.spotPrice) // 1000000
+    neutralOut = (tokensToTrade // self.data.spotPrice) // 1_000_000
 
     # Apply spread multiplier
     # Expected out multiplied by spread = (neutral out from above) * (1 + spread amount)
@@ -176,16 +176,18 @@ class MakerContract(sp.Contract):
   
   # Return FA 1.2 balance to receiverContractAddress
   @sp.entry_point
-  def return_balance(self):
-    
+  def returnBalance(self):
+
+    sp.verify(sp.sender == self.data.governorContractAddress, message = Errors.NOT_GOVERNOR)
+
     # Update balance
-    self.get_balance()
+    self.getBalance()
 
     # Send tokens to receiver
     sendParam = (
       sp.self_address,
       self.data.receiverContractAddress,
-      self.data.tokenBalance,
+      self.data.tokenBalance
     )
 
     sendHandle = sp.contract(
@@ -196,8 +198,8 @@ class MakerContract(sp.Contract):
     sp.transfer(sendParam, sp.mutez(0), sendHandle)
 
   # Call token contract to update balance.
-  def get_balance(self):
-    param = (sp.self_address, sp.self_entry_point(entry_point = 'redeem_callback'))
+  def getBalance(self):
+    param = (sp.self_address, sp.self_entry_point(entry_point = 'redeemCallback'))
     contractHandle = sp.contract(
       sp.TPair(sp.TAddress, sp.TContract(sp.TNat)),
       self.data.tokenAddress,
@@ -207,7 +209,7 @@ class MakerContract(sp.Contract):
 
   # Private callback for updating Balance.
   @sp.entry_point
-  def redeem_callback(self, updatedBalance):
+  def redeemCallback(self, updatedBalance):
     sp.set_type(updatedBalance, sp.TNat)
 
     # Validate sender
@@ -264,6 +266,7 @@ class MakerContract(sp.Contract):
   @sp.entry_point
   def setVolatilityTolerance(self, newVolatilityTolerance):
     sp.set_type(newVolatilityTolerance, sp.TNat)
+    
     sp.verify(sp.sender == self.data.governorContractAddress, message = Errors.NOT_GOVERNOR)
     self.data.volatilityTolerance = newVolatilityTolerance
 
@@ -339,9 +342,9 @@ if __name__ == "__main__":
   ################################################################
   ################################################################
 
-  FakeHarbingerVwap = sp.io.import_script_from_url("file:test-helpers/fake-harbinger-normalizer.py")
-  FakeHarbingerSpot = sp.import_script_from_url("file:test-helpers/fake-harbinger-spot.py")
-  FakeQuipuswap = sp.io.import_script_from_url("file:test-helpers/fake-quipuswap.py")
+  FakeHarbingerVwap = sp.io.import_stored_contract("fake-harbinger-normalizer")
+  FakeHarbingerSpot = sp.io.import_stored_contract("fake-harbinger-spot")
+  FakeQuipuswap = sp.io.import_stored_contract("fake-quipuswap")
 
 
   ################################################################
@@ -359,7 +362,7 @@ if __name__ == "__main__":
     
     # AND fake harbinger normalizer contract
     harbingerVwap = FakeHarbingerVwap.FakeHarbingerContract(
-      harbingerValue = sp.nat(1000000), # $1.00
+      harbingerValue = sp.nat(1_000_000), # $1.00
       harbingerUpdateTime = currentTime,
       harbingerAsset = Constants.ASSET_CODE
     )
@@ -367,7 +370,7 @@ if __name__ == "__main__":
     
     # AND fake harbinger spot contract
     harbingerSpot = FakeHarbingerSpot.FakeHarbingerContract(
-      harbingerValue = sp.nat(1000000), # $1.00
+      harbingerValue = sp.nat(1_000_000), # $1.00
       harbingerUpdateTime = currentTime,
       harbingerAsset = Constants.ASSET_CODE,
       harbingerVolume = sp.nat(1000)
@@ -405,7 +408,7 @@ if __name__ == "__main__":
     #                 = (10 / $1.00) * (1 + .1)
     #                 = 10 * 1.1
     #                 = 11
-    scenario.verify(quipuswap.data.amountOut == 11 * 1000000)
+    scenario.verify(quipuswap.data.amountOut == 11 * 1_000_000)
     scenario.verify(quipuswap.data.destination == Addresses.RECEIVER_ADDRESS)
 
   @sp.add_test(name="tokenToTezPayment - correctly calculates amount out with no spread")
@@ -417,7 +420,7 @@ if __name__ == "__main__":
     
     # AND fake harbinger normalizer contract
     harbingerVwap = FakeHarbingerVwap.FakeHarbingerContract(
-      harbingerValue = sp.nat(1000000), # $1.00
+      harbingerValue = sp.nat(1_000_000), # $1.00
       harbingerUpdateTime = currentTime,
       harbingerAsset = Constants.ASSET_CODE
     )
@@ -425,7 +428,7 @@ if __name__ == "__main__":
     
     # AND fake harbinger spot contract
     harbingerSpot = FakeHarbingerSpot.FakeHarbingerContract(
-      harbingerValue = sp.nat(1000000), # $1.00
+      harbingerValue = sp.nat(1_000_000), # $1.00
       harbingerUpdateTime = currentTime,
       harbingerAsset = Constants.ASSET_CODE,
       harbingerVolume = sp.nat(1000)
@@ -462,7 +465,7 @@ if __name__ == "__main__":
     #                 = (10 / $1.00) * (1 + 0)
     #                 = 10 * 1
     #                 = 10
-    scenario.verify(quipuswap.data.amountOut == 10 * 1000000)
+    scenario.verify(quipuswap.data.amountOut == 10 * 1_000_000)
     scenario.verify(quipuswap.data.destination == Addresses.RECEIVER_ADDRESS)
 
   @sp.add_test(name="tokenToTezPayment - fails if oracle is outdated")
@@ -471,20 +474,20 @@ if __name__ == "__main__":
     
     # GIVEN a moment in time.
     currentTime = sp.timestamp(1000)
-    maxDataDelaySec = sp.nat(30)
-    
-    # AND fake harbinger contract that is out of date
+
+    # AND fake harbinger spot contract that is out of date
     lastUpdateTime = sp.timestamp(500)
-    harbinger = FakeHarbingerSpot.FakeHarbingerContract(
-      harbingerValue = sp.nat(3500000), # $3.50
+    harbingerSpot = FakeHarbingerSpot.FakeHarbingerContract(
+      harbingerValue = sp.nat(3_500_000), # $3.50
       harbingerUpdateTime = lastUpdateTime,
       harbingerAsset = Constants.ASSET_CODE
     )
-    scenario += harbinger
+    scenario += harbingerSpot
     
-    # AND a Quipuswap Proxy contract
+    # AND a Quipuswap Proxy contract with max data delay less than (currentTime - lastUpdateTime)
+    maxDataDelaySec = sp.nat(499) # currentTime - lastUpdateTime - 1
     proxy = MakerContract(
-      spotContractAddress = harbinger.address,
+      spotContractAddress = harbingerSpot.address,
       maxDataDelaySec = maxDataDelaySec
     )
     scenario += proxy
@@ -545,7 +548,7 @@ if __name__ == "__main__":
     
     # AND fake harbinger normalizer contract with a price of $1.00
     harbingerVwap = FakeHarbingerVwap.FakeHarbingerContract(
-      harbingerValue = sp.nat(1000000), # $1.00
+      harbingerValue = sp.nat(1_000_000), # $1.00
       harbingerUpdateTime = currentTime,
       harbingerAsset = Constants.ASSET_CODE
     )
@@ -553,7 +556,7 @@ if __name__ == "__main__":
     
     # AND fake harbinger spot contract with a price of $1.10
     harbingerSpot = FakeHarbingerSpot.FakeHarbingerContract(
-      harbingerValue = sp.nat(1100000), # $1.10
+      harbingerValue = sp.nat(1_100_000), # $1.10
       harbingerUpdateTime = currentTime,
       harbingerAsset = Constants.ASSET_CODE,
       harbingerVolume = sp.nat(1000)
@@ -575,6 +578,40 @@ if __name__ == "__main__":
       now = currentTime,
       valid = False,
       exception = Errors.VOLATILITY
+    )
+
+  ################################################################
+  # returnBalance
+  ################################################################
+  @sp.add_test(name="returnBalance - succeeds when called by governor")
+  def test():
+    # GIVEN a Quipuswap Proxy contract
+    scenario = sp.test_scenario()
+
+    # AND a market making contract
+    proxy = MakerContract()
+    scenario += proxy
+
+    # WHEN returnBalance is called by the governor THEN the call succeeds
+    scenario += proxy.returnBalance().run(
+      sender = Addresses.GOVERNOR_ADDRESS,
+      valid = True
+    )
+
+  @sp.add_test(name="returnBalance - fails when not called by governor")
+  def test():
+    # GIVEN a Quipuswap Proxy contract
+    scenario = sp.test_scenario()
+
+    # AND a maker contract
+    proxy = MakerContract()
+    scenario += proxy
+
+    # WHEN returnBalance is called THEN the call fails
+    notGovernor = Addresses.NULL_ADDRESS
+    scenario += proxy.returnBalance().run(
+      sender = notGovernor,
+      valid = False
     )
 
   ################################################################
@@ -656,7 +693,7 @@ if __name__ == "__main__":
       valid = False,
       exception = Errors.NOT_GOVERNOR
     )
-    
+
   ################################################################
   # setMinTradeDelaySec
   ################################################################
@@ -790,7 +827,7 @@ if __name__ == "__main__":
     scenario = sp.test_scenario()
 
     proxy = MakerContract(
-      tokenPrecision = sp.nat(1000000)
+      tokenPrecision = sp.nat(1_000_000)
     )
     scenario += proxy
 
@@ -809,7 +846,7 @@ if __name__ == "__main__":
     scenario = sp.test_scenario()
 
     proxy = MakerContract(
-      tokenPrecision = sp.nat(1000000)
+      tokenPrecision = sp.nat(1_000_000)
     )
     scenario += proxy
 
@@ -1002,7 +1039,7 @@ if __name__ == "__main__":
     )
     scenario += proxy
 
-    # WHEN the setPauseGuardianContract is called with a new contract
+    # WHEN setPauseGuardianContract is called with a new contract
     rotatedAddress = Addresses.ROTATED_ADDRESS
     scenario += proxy.setPauseGuardianContract(rotatedAddress).run(
       sender = Addresses.GOVERNOR_ADDRESS,
@@ -1022,7 +1059,7 @@ if __name__ == "__main__":
     )
     scenario += proxy
 
-    # WHEN the setPauseGuardianContract is called by someone who isn't the governor THEN the call fails
+    # WHEN setPauseGuardianContract is called by someone who isn't the governor THEN the call fails
     rotatedAddress = Addresses.ROTATED_ADDRESS
     scenario += proxy.setPauseGuardianContract(rotatedAddress).run(
       sender = Addresses.NULL_ADDRESS,
@@ -1045,7 +1082,7 @@ if __name__ == "__main__":
     )
     scenario += proxy
 
-    # WHEN the setQuipuswapContract is called with a new contract
+    # WHEN setQuipuswapContract is called with a new contract
     rotatedAddress = Addresses.ROTATED_ADDRESS
     scenario += proxy.setQuipuswapContract(rotatedAddress).run(
       sender = Addresses.GOVERNOR_ADDRESS,
@@ -1066,7 +1103,7 @@ if __name__ == "__main__":
     )
     scenario += proxy
 
-    # WHEN the setQuipuswapContract is called by someone who isn't the governor THEN the call fails
+    # WHEN setQuipuswapContract is called by someone who isn't the governor THEN the call fails
     rotatedAddress = Addresses.ROTATED_ADDRESS
     scenario += proxy.setQuipuswapContract(rotatedAddress).run(
       sender = Addresses.NULL_ADDRESS,
@@ -1089,7 +1126,7 @@ if __name__ == "__main__":
     )
     scenario += proxy
 
-    # WHEN the setGovernorContract is called with a new contract
+    # WHEN setGovernorContract is called with a new contract
     rotatedAddress = Addresses.ROTATED_ADDRESS
     scenario += proxy.setGovernorContract(rotatedAddress).run(
       sender = governorContractAddress,
@@ -1109,7 +1146,7 @@ if __name__ == "__main__":
     )
     scenario += proxy
 
-    # WHEN the setGovernorContract is called by someone who isn't the governor THEN the call fails
+    # WHEN setGovernorContract is called by someone who isn't the governor THEN the call fails
     rotatedAddress = Addresses.ROTATED_ADDRESS
     scenario += proxy.setGovernorContract(rotatedAddress).run(
       sender = Addresses.NULL_ADDRESS,
@@ -1132,7 +1169,7 @@ if __name__ == "__main__":
     )
     scenario += proxy
 
-    # WHEN the setReceiverContract is called with a new contract
+    # WHEN setReceiverContract is called with a new contract
     rotatedAddress = Addresses.ROTATED_ADDRESS
     scenario += proxy.setReceiverContract(rotatedAddress).run(
       sender = governorContractAddress,
@@ -1152,7 +1189,7 @@ if __name__ == "__main__":
     )
     scenario += proxy
 
-    # WHEN the setReceiverContract is called by someone who isn't the governor THEN the call fails
+    # WHEN setReceiverContract is called by someone who isn't the governor THEN the call fails
     rotatedAddress = Addresses.ROTATED_ADDRESS
     scenario += proxy.setReceiverContract(rotatedAddress).run(
       sender = Addresses.NULL_ADDRESS,
@@ -1160,4 +1197,4 @@ if __name__ == "__main__":
       exception = Errors.NOT_GOVERNOR
     )    
 
-  sp.add_compilation_target("quipu_ceiling", MakerContract())
+  sp.add_compilation_target("quipu_swapper", MakerContract())
