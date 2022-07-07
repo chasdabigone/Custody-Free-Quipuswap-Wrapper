@@ -14,8 +14,7 @@ This project was created using [SmartPy](https://smartpy.io) and requires the Sm
 
 Set the addresses in `common/addresses.py` and deploy.
 
-More detailed docs for each contract are available at:
-
+More detailed docs for each contract are available at:<br>
 [Quipuswap Liquidity Proxy Documentation](https://github.com/chasdabigone/Custody-Free-Quipuswap-Wrapper/blob/main/docs/quipuswap_liquidity_proxy.md)<br>
 [Quipuswap Maker Ceiling Documentation](https://github.com/chasdabigone/Custody-Free-Quipuswap-Wrapper/blob/main/docs/quipuswap_maker_ceiling.md)
 
