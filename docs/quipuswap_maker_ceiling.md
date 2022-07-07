@@ -29,7 +29,7 @@
  `spreadAmount=15`, `volatilityTolerance=5`, `tradeAmount=1000`, `maxDataDelaySec=300`, `minTradeDelaySec=0`
 * **Peg stability** - spread amount is set at a level outside of regular historical bounds, but low enough to provide liquidity at the extremes. A minimum trade delay equal to the maximum data delay ensures a new Harbinger update must be pushed before each trade.
  `spreadAmount=6`, `volatilityTolerance=3`, `tradeAmount=500`, `maxDataDelaySec=180`, `minTradeDelaySec=180`
-* **Fire sale** - an example of trying to sell tokens very quickly, at a price at least equal to the Harbinger price. Note that as spread decreases we decrease the maximum data delay to offset some of the added risk. Since we want to fire sale, we allow batch swaps with a trade delay of 0.
+* **Fire sale** - an example of trying to sell tokens very quickly, at a price at least equal to the Harbinger price. Note that as spread decreases we decrease the maximum data delay to offset some of the added risk. Since the objective is to fire sale, we allow batch swaps with a trade delay of 0.
  `spreadAmount=0`, `volatilityTolerance=3`, `tradeAmount=500`, `maxDataDelaySec=120`, `minTradeDelaySec=0`
 
 ## Attribution
