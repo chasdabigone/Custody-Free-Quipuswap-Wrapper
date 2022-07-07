@@ -9,7 +9,7 @@
 * **The risk mitigation parameters can be understood as ways to make the execution fail. If the parameters are riskier, it will be easier to execute the swap. Conservative parameters make the swap more difficult to execute.**
 * **Finding the right balance of parameters is important, and this balance will differ depending on the specific goals of the swap, along with external factors. It is recommended to start with a conservative configuration**
 
-The governor can utilize all functions. Anyone can execute the `tokenToTezPayment()` function which acts as a wrapper for the Quipuswap function of the same name.<br>
+The governor can utilize all functions except for `pause` and `redeemCallback`. Anyone can execute the `tokenToTezPayment()` function which acts as a wrapper for the Quipuswap function of the same name.<br>
 Governor should be a higher privileged multi-sig or DAO with a time lock.
 
 ## Risk Mitigation Parameters
@@ -66,10 +66,10 @@ The MakerContract stores the following:<br>
 
 The MakerContract has the following entrypoints:<br>
 `pause`: Pauses the contract. Can only be called by the Pause Guardian<br>
-`redeemCallback`: Private callback for FA1.2<br>
-`returnBalance`: Get the FA1.2 token balance. <br>
-`setGovernorContract`: set the governor contract address. Can only be called by the Governor<br>
-`setMaxDataDelaySec`: set the maximum data delay. Can only be called by the Governor<br>
+`redeemCallback`: Private callback for FA1.2. Can only be called by the token contract.<br>
+`returnBalance`: Send the FA1.2 token balance to the Receiver address. Can only be called by the Governor.<br>
+`setGovernorContract`: set the governor contract address. Can only be called by the Governor.<br>
+`setMaxDataDelaySec`: set the maximum data delay. Can only be called by the Governor.<br>
 `setMinTradeDelaySec`: set the minimum time between trades. Can only be called by the Governor.<br>
 `setPauseGuardianContract`: set the pause guardian address. Can only be called by the Governor.<br>
 `setQuipuswapContract`: set the quipuswap AMM address. Can only be called by the Governor.<br>
