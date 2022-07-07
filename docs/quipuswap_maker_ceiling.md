@@ -43,11 +43,11 @@ If a new MakerContract contract is needed then: (1) A new MakerContract contract
 
 ## Storage
 The MakerContract stores the following:<br>
-`spreadAmount`: The amount in percent that the kUSD price on Quipuswap must be above the Harbinger Spot price before a swap will be allowed.<br>
-`volatilityTolerance`: The range in percent that the Harbinger Normalizer price must be relative to Harbinger Spot price (volatility between normalizer and spot)<br>
-`maxDataDelaySec`: The amount of time in seconds before Harbinger data is considered stale.<br>
-`minTradeDelaySec`: The amount of time in seconds that must pass before another swap is allowed.<br>
-`tradeAmount`: The amount of tokens to trade in each transaction, normalized.<br>
+`spreadAmount`(nat): The amount in percent that the kUSD price on Quipuswap must be above the Harbinger Spot price before a swap will be allowed.<br>
+`volatilityTolerance`(nat): The range in percent that the Harbinger Normalizer price must be relative to Harbinger Spot price (volatility between normalizer and spot)<br>
+`maxDataDelaySec`(nat): The amount of time in seconds before Harbinger data is considered stale.<br>
+`minTradeDelaySec`(nat): The amount of time in seconds that must pass before another swap is allowed.<br>
+`tradeAmount`(nat): The amount of tokens to trade in each transaction, normalized.<br>
 
 `governorContractAddress` (address): The Governor<br>
 `vwapContractAddress` (address): The address of the Harbinger Normalizer<br>
