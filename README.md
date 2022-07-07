@@ -8,7 +8,9 @@
 * **SWAPPING FUNDS IS INHERENTLY RISKY. DOING SO AUTONOMOUSLY ADDS EVEN MORE RISK. THIS REPO PROVIDES WAYS TO MANAGE THAT RISK. IT CANNOT AND DOES NOT PRETEND TO ELIMINATE THE RISK. USE WITH CAUTION**
 
 
-## Instructions for deployment.
+## Instructions for use
+
+This project was created using [SmartPy](https://smartpy.io) and requires the SmartPy CLI to interact
 
 Set the addresses in `common/addresses.py` and deploy.
 
