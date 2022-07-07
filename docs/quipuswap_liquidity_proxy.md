@@ -1,11 +1,11 @@
 # Quipuswap-Liquidity-Proxy
-This is a fork of https://github.com/Hover-Labs/kolibri-contracts/blob/master/smart_contracts/dev-fund.py
+This contract is a fork of https://github.com/Hover-Labs/kolibri-contracts/blob/master/smart_contracts/dev-fund.py
 
 **Overview**
 
 A LiquidityFund contract collects funds in kUSD and XTZ for interaction with a Quipuswap AMM Contract.
 
-The LiquidityFund can add and remove liquidity, along with utilizing Quipuswap governance. It can also disburse any XTZ and tokens it contains.
+The LiquidityFund can add and remove liquidity, along with utilizing Quipuswap governance. It can also disburse any XTZ or tokens it contains.
 
 The LiquidityFund contract has two permissions on it: 
 
