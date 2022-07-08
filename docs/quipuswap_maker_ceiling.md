@@ -14,7 +14,7 @@ Governor should be a higher privileged multi-sig or DAO with a time lock.
 
 ## Risk Mitigation Parameters
 
-`spreadAmount`: The amount in percent that the kUSD price on Quipuswap must be above the Harbinger Spot price before a swap will be allowed. Low=Risky, High=Conservative<br>
+`spreadAmount`: The amount in percent that the kUSD price on Quipuswap must be above the Harbinger Spot price before a swap will be allowed. This parameter has the most influence over whether a swap will be allowed. Low=Risky, High=Conservative<br>
 `volatilityTolerance`: The range in percent that the Harbinger Normalizer price must be relative to Harbinger Spot price (volatility between normalizer and spot). Low=Conservative, High=Risky<br>
 `tradeAmount`: The amount of tokens to trade in each transaction, normalized. Low=Conservative, High=Risky<br>
 `maxDataDelaySec`: The amount of time in seconds before Harbinger data is considered stale. Low=Conservative, High=Risky<br>
