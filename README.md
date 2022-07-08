@@ -12,7 +12,7 @@
 
 This project was created using [SmartPy](https://smartpy.io) and requires the SmartPy CLI to interact
 
-Set the addresses in `common/addresses.py` and deploy.
+Set the addresses in `common/addresses.py`, compile, and deploy.
 
 More detailed docs for each contract are available at:<br>
 [Quipuswap Liquidity Proxy Documentation](https://github.com/chasdabigone/Custody-Free-Quipuswap-Wrapper/blob/main/docs/quipuswap_liquidity_proxy.md)<br>
