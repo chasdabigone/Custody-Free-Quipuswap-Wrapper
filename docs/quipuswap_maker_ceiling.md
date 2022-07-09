@@ -31,7 +31,7 @@ In addition, risk can be mitigated by only keeping a certain balance available i
  `spreadAmount=0`, `volatilityTolerance=3`, `tradeAmount=500`, `maxDataDelaySec=120`, `minTradeDelaySec=0`
  
 ## Pros and cons vs OTC multisig swap
-**Pros**: provide liquidity to those who need it most (those willing to pay more), eliminate custodial middleman (multisig), keep fees with Quipuswap LPers, provide confidence that liquidity will be available to pay loans during market downturns
+**Pros**: provide liquidity to those who need it most (those willing to pay more), eliminate custodial middleman (multisig), keep fees with Quipuswap LPers, provide confidence that liquidity will be available to pay loans during market downturns, provide liquidity to the public marketplace
 
 **Cons**: Adds oracle risk, adds complexity, not guaranteed to swap
 
