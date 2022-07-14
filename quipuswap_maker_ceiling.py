@@ -13,30 +13,24 @@ class MakerContract(sp.Contract):
     self,
 
     governorContractAddress = Addresses.GOVERNOR_ADDRESS,
+    pauseGuardianContractAddress = Addresses.PAUSE_GUARDIAN_ADDRESS,
+    receiverContractAddress = Addresses.RECEIVER_ADDRESS, # Address to send the output to
 
     vwapContractAddress = Addresses.HARBINGER_VWAP_ADDRESS,
     spotContractAddress = Addresses.HARBINGER_SPOT_ADDRESS,
-    
-    pauseGuardianContractAddress = Addresses.PAUSE_GUARDIAN_ADDRESS,
     quipuswapContractAddress = Addresses.QUIPUSWAP_ADDRESS,
-
-    receiverContractAddress = Addresses.RECEIVER_ADDRESS, # Address to send the output to
+    tokenAddress = Addresses.TOKEN_ADDRESS,
 
     paused = False,
 
-    tokenPrecision = Constants.PRECISION, # 18 decimals
-    tokenBalance = sp.nat(0), # this should be 0 when deployed
-    tokenAddress = Addresses.TOKEN_ADDRESS,
-
     maxDataDelaySec = sp.nat(60 * 5), # 5 minutes
     minTradeDelaySec = sp.nat(0), # Time to wait in seconds between allowing swaps (use 0 to allow batch transactions)
-
     spreadAmount = sp.nat(0), # How far below the oracle price the exchange price must be in percent before allowing a swap
-    
     volatilityTolerance = sp.nat(5), # 5%
     tradeAmount = sp.nat(10),
-    lastTradeTime = sp.timestamp(1),
 
+    tokenBalance = sp.nat(0), # this should be 0 when deployed
+    lastTradeTime = sp.timestamp(1),
     spotPrice = sp.nat(0)
 
     
@@ -44,32 +38,25 @@ class MakerContract(sp.Contract):
     self.init(
  
         governorContractAddress = governorContractAddress,
+        pauseGuardianContractAddress = pauseGuardianContractAddress,
+        receiverContractAddress = receiverContractAddress,
 
         vwapContractAddress = vwapContractAddress,
         spotContractAddress = spotContractAddress,
-      
-        pauseGuardianContractAddress = pauseGuardianContractAddress,
-        quipuswapContractAddress = quipuswapContractAddress,
-
-        receiverContractAddress = receiverContractAddress,
+        quipuswapContractAddress = quipuswapContractAddress,      
+        tokenAddress = tokenAddress,
 
         paused = paused,
 
-        tokenPrecision = tokenPrecision,
-        tokenBalance = tokenBalance,
-        tokenAddress = tokenAddress,
-
         maxDataDelaySec = maxDataDelaySec,
-        minTradeDelaySec = minTradeDelaySec,
-        
-        spreadAmount = spreadAmount, # Amount of spread in percent
-      
+        minTradeDelaySec = minTradeDelaySec,        
+        spreadAmount = spreadAmount,      
         volatilityTolerance = volatilityTolerance,
         tradeAmount = tradeAmount,
-        lastTradeTime = lastTradeTime,
-        
-        spotPrice = spotPrice
-    
+
+        tokenBalance = tokenBalance,       
+        lastTradeTime = lastTradeTime, 
+        spotPrice = spotPrice   
     )
 
   ################################################################
@@ -129,15 +116,15 @@ class MakerContract(sp.Contract):
     sp.verify(dataAge <= self.data.maxDataDelaySec, Errors.STALE_DATA)
   
     # Upsample price numbers to have tokenPrecision digits of precision
-    harbingerVwapPrice = (sp.snd(harbingerVwap) * self.data.tokenPrecision) // 1_000_000
-    harbingerSpotPrice = (self.data.spotPrice * self.data.tokenPrecision) // 1_000_000
+    harbingerVwapPrice = (sp.snd(harbingerVwap) * Constants.PRECISION) // 1_000_000
+    harbingerSpotPrice = (self.data.spotPrice * Constants.PRECISION) // 1_000_000
 
     # Check for volatility difference between VWAP and spot
     volatilityDifference = (abs(harbingerVwapPrice - harbingerSpotPrice) * 100 // harbingerSpotPrice) # because tolerance is a percent
     sp.verify(self.data.volatilityTolerance > volatilityDifference, Errors.VOLATILITY)
 
     # Upsample
-    tokensToTrade = (self.data.tradeAmount * self.data.tokenPrecision)
+    tokensToTrade = (self.data.tradeAmount * Constants.PRECISION)
 
     # Calculate the expected XTZ with no slippage.
     # Expected out with no slippage = (number of tokens to trade // mutez Spot price) / 1e6
@@ -269,14 +256,6 @@ class MakerContract(sp.Contract):
     
     sp.verify(sp.sender == self.data.governorContractAddress, message = Errors.NOT_GOVERNOR)
     self.data.volatilityTolerance = newVolatilityTolerance
-
-  # Set the token precision.
-  @sp.entry_point
-  def setTokenPrecision(self, newTokenPrecision):
-    sp.set_type(newTokenPrecision, sp.TNat)
-
-    sp.verify(sp.sender == self.data.governorContractAddress, message = Errors.NOT_GOVERNOR)
-    self.data.tokenPrecision = newTokenPrecision
 
   # Unpause the system.
   @sp.entry_point
@@ -812,47 +791,6 @@ if __name__ == "__main__":
     # WHEN setVolatilityTolerance is called is called by someone who isn't the governor THEN the call fails
     newValue = sp.nat(20)
     scenario += proxy.setVolatilityTolerance(newValue).run(
-      sender = Addresses.NULL_ADDRESS,
-      valid = False,
-      exception = Errors.NOT_GOVERNOR
-    )
-
-  ################################################################
-  # setTokenPrecision
-  ################################################################
-
-  @sp.add_test(name="setTokenPrecision - succeeds when called by governor")
-  def test():
-    # GIVEN a Quipuswap Proxy contract
-    scenario = sp.test_scenario()
-
-    proxy = MakerContract(
-      tokenPrecision = sp.nat(1_000_000)
-    )
-    scenario += proxy
-
-    # WHEN setTokenPrecision is called
-    newValue = sp.nat(20)
-    scenario += proxy.setTokenPrecision(newValue).run(
-      sender = Addresses.GOVERNOR_ADDRESS,
-    )
-
-    # THEN the storage is updated
-    scenario.verify(proxy.data.tokenPrecision == newValue)
-
-  @sp.add_test(name="setTokenPrecision - fails when not called by governor")
-  def test():
-    # GIVEN a Quipuswap Proxy contract
-    scenario = sp.test_scenario()
-
-    proxy = MakerContract(
-      tokenPrecision = sp.nat(1_000_000)
-    )
-    scenario += proxy
-
-    # WHEN setTokenPrecision is called is called by someone who isn't the governor THEN the call fails
-    newValue = sp.nat(20)
-    scenario += proxy.setTokenPrecision(newValue).run(
       sender = Addresses.NULL_ADDRESS,
       valid = False,
       exception = Errors.NOT_GOVERNOR
