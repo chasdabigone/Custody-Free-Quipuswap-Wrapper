@@ -67,7 +67,7 @@ class LiquidityFundContract(sp.Contract):
     # Quipuswap API
     ################################################################
 
-    @sp.entry_point
+    @sp.entry_point(check_no_incoming_transfer=True)
     def addLiquidity(self, param):
         sp.set_type(param, sp.TRecord(tokens = sp.TNat, mutez = sp.TNat).layout(("tokens", "mutez")))
 
@@ -113,7 +113,7 @@ class LiquidityFundContract(sp.Contract):
         ).open_some(message = Errors.DEX_CONTRACT_ERROR)
         sp.transfer(param.tokens, sp.utils.nat_to_mutez(param.mutez), addHandle)
     
-    @sp.entry_point
+    @sp.entry_point(check_no_incoming_transfer=True)
     def removeLiquidity(self, param):
         sp.set_type(param, sp.TRecord(
             min_mutez_out = sp.TNat, 
@@ -133,13 +133,11 @@ class LiquidityFundContract(sp.Contract):
         arg = sp.pair(sp.pair(param.min_mutez_out, param.min_tokens_out), param.lp_to_remove)
         sp.transfer(arg, sp.mutez(0), divestHandle)
 
-    @sp.entry_point
+    @sp.entry_point(check_no_incoming_transfer=True)
     def claimRewards(self):
 
         # Verify the caller is the governor address
         sp.verify(sp.sender == self.data.governorContractAddress, message = Errors.NOT_GOVERNOR)
-
-        address = sp.self_address
 
         # Claim rewards from the Quipuswap contract
         claimHandle = sp.contract(
@@ -147,9 +145,9 @@ class LiquidityFundContract(sp.Contract):
             self.data.quipuswapContractAddress,
             "withdrawProfit"
         ).open_some(message = Errors.DEX_CONTRACT_ERROR)
-        sp.transfer(address, sp.mutez(0), claimHandle) 
+        sp.transfer(sp.self_address, sp.mutez(0), claimHandle) 
 
-    @sp.entry_point
+    @sp.entry_point(check_no_incoming_transfer=True)
     def vote(self, param):
         sp.set_type(param, sp.TRecord(
             candidate = sp.TKeyHash,
@@ -169,12 +167,12 @@ class LiquidityFundContract(sp.Contract):
         arg = sp.pair(sp.pair(param.candidate, param.value), param.voter)
         sp.transfer(arg, sp.mutez(0), voteHandle)
     
-    @sp.entry_point
+    @sp.entry_point(check_no_incoming_transfer=True)
     def veto(self, param):
         sp.set_type(param, sp.TRecord(
             value = sp.TNat,
             voter = sp.TAddress
-        ).layout((("value", "voter"))))
+        ).layout(("value", "voter")))
 
         # Verify the caller is the executor address
         sp.verify(sp.sender == self.data.executorContractAddress, message = Errors.NOT_EXECUTOR)
@@ -193,7 +191,7 @@ class LiquidityFundContract(sp.Contract):
     # Governance
     ################################################################
 
-    @sp.entry_point
+    @sp.entry_point(check_no_incoming_transfer=True)
     def setDelegate(self, newDelegate):
         sp.set_type(newDelegate, sp.TOption(sp.TKeyHash))
 
@@ -203,7 +201,7 @@ class LiquidityFundContract(sp.Contract):
         sp.set_delegate(newDelegate)
 
     # Governance is timelocked and can always transfer funds.
-    @sp.entry_point
+    @sp.entry_point(check_no_incoming_transfer=True)
     def send(self, param):
         sp.set_type(param, sp.TPair(sp.TMutez, sp.TAddress))
 
@@ -211,7 +209,7 @@ class LiquidityFundContract(sp.Contract):
         sp.send(sp.snd(param), sp.fst(param))
 
     # Governance is timelocked and can always transfer funds.
-    @sp.entry_point
+    @sp.entry_point(check_no_incoming_transfer=True)
     def sendAll(self, destination):
         sp.set_type(destination, sp.TAddress)
 
@@ -219,7 +217,7 @@ class LiquidityFundContract(sp.Contract):
         sp.send(destination, sp.balance)        
 
     # Governance is timelocked and can always transfer funds.
-    @sp.entry_point
+    @sp.entry_point(check_no_incoming_transfer=True)
     def sendTokens(self, param):
         sp.set_type(param, sp.TPair(sp.TNat, sp.TAddress))
 
@@ -240,11 +238,11 @@ class LiquidityFundContract(sp.Contract):
             sp.TRecord(from_ = sp.TAddress, to_ = sp.TAddress, value = sp.TNat).layout(("from_ as from", ("to_ as to", "value"))),
             self.data.tokenContractAddress,
             "transfer"
-        ).open_some()
+        ).open_some(message = Errors.TOKEN_TRANSFER)
         sp.transfer(tokenContractParam, sp.mutez(0), contractHandle)
 
     # Transfer the entire balance of kUSD
-    @sp.entry_point
+    @sp.entry_point(check_no_incoming_transfer=True)
     def sendAllTokens(self, destination):
         sp.set_type(destination, sp.TAddress)
 
@@ -262,7 +260,7 @@ class LiquidityFundContract(sp.Contract):
             ),
             self.data.tokenContractAddress,
             "getBalance"
-        ).open_some()
+        ).open_some(message = Errors.BALANCE_REQUEST)
         tokenContractArg = (
             sp.self_address,
             sp.self_entry_point(entry_point = "sendAllTokens_callback")
@@ -274,7 +272,7 @@ class LiquidityFundContract(sp.Contract):
         self.data.sendAllTokens_destination = sp.some(destination)      
 
     # Private callback for `sendAllTokens`
-    @sp.entry_point
+    @sp.entry_point(check_no_incoming_transfer=True)
     def sendAllTokens_callback(self, tokenBalance):
         sp.set_type(tokenBalance, sp.TNat)
 
@@ -297,7 +295,7 @@ class LiquidityFundContract(sp.Contract):
             sp.TRecord(from_ = sp.TAddress, to_ = sp.TAddress, value = sp.TNat).layout(("from_ as from", ("to_ as to", "value"))),
             self.data.tokenContractAddress,
             "transfer"
-        ).open_some()
+        ).open_some(message = Errors.TOKEN_TRANSFER)
         sp.transfer(tokenContractParam, sp.mutez(0), contractHandle)
 
         # Reset state
@@ -305,7 +303,7 @@ class LiquidityFundContract(sp.Contract):
         self.data.sendAllTokens_destination = sp.none      
 
     # Rescue FA1.2 Tokens
-    @sp.entry_point
+    @sp.entry_point(check_no_incoming_transfer=True)
     def rescueFA12(self, params):
         sp.set_type(params, sp.TRecord(
             tokenContractAddress = sp.TAddress,
@@ -325,12 +323,12 @@ class LiquidityFundContract(sp.Contract):
             ).layout(("from_ as from", ("to_ as to", "value"))),
             params.tokenContractAddress,
             "transfer"
-        ).open_some()
+        ).open_some(message = Errors.TOKEN_TRANSFER)
         arg = sp.record(from_ = sp.self_address, to_ = params.destination, value = params.amount)
         sp.transfer(arg, sp.mutez(0), handle)
 
     # Rescue FA2 tokens
-    @sp.entry_point
+    @sp.entry_point(check_no_incoming_transfer=True)
     def rescueFA2(self, params):
         sp.set_type(params, sp.TRecord(
             tokenContractAddress = sp.TAddress,
@@ -358,7 +356,7 @@ class LiquidityFundContract(sp.Contract):
             ),
             params.tokenContractAddress,
             "transfer"
-        ).open_some()
+        ).open_some(message = Errors.TOKEN_TRANSFER)
 
         arg = [
             sp.record(
@@ -375,7 +373,7 @@ class LiquidityFundContract(sp.Contract):
         sp.transfer(arg, sp.mutez(0), handle)                
 
     # Update the governor contract.
-    @sp.entry_point
+    @sp.entry_point(check_no_incoming_transfer=True)
     def setGovernorContract(self, newGovernorContractAddress):
         sp.set_type(newGovernorContractAddress, sp.TAddress)
 
@@ -383,7 +381,7 @@ class LiquidityFundContract(sp.Contract):
         self.data.governorContractAddress = newGovernorContractAddress
 
     # Update the executor contract.
-    @sp.entry_point
+    @sp.entry_point(check_no_incoming_transfer=True)
     def setExecutorContract(self, newExecutorContractAddress):
         sp.set_type(newExecutorContractAddress, sp.TAddress)
 
@@ -391,7 +389,7 @@ class LiquidityFundContract(sp.Contract):
         self.data.executorContractAddress = newExecutorContractAddress
     
     # Set slippage tolerance (in percent)
-    @sp.entry_point
+    @sp.entry_point(check_no_incoming_transfer=True)
     def setSlippageTolerance(self, newSlippageTolerance):
         sp.set_type(newSlippageTolerance, sp.TNat)
 
@@ -399,7 +397,7 @@ class LiquidityFundContract(sp.Contract):
         self.data.slippageTolerance = newSlippageTolerance
 
     # Set maximum oracle data delay in seconds
-    @sp.entry_point
+    @sp.entry_point(check_no_incoming_transfer=True)
     def setMaxDataDelaySec(self, newMaxDataDelaySec):
         sp.set_type(newMaxDataDelaySec, sp.TNat)
 
@@ -407,7 +405,7 @@ class LiquidityFundContract(sp.Contract):
         self.data.maxDataDelaySec = newMaxDataDelaySec
 
     # Update the harbinger normalizer contract.
-    @sp.entry_point
+    @sp.entry_point(check_no_incoming_transfer=True)
     def setHarbingerContract(self, newHarbingerContractAddress):
         sp.set_type(newHarbingerContractAddress, sp.TAddress)
 
@@ -423,12 +421,12 @@ if __name__ == "__main__":
     # ################################################################
     # ################################################################
 
-    DummyContract = sp.io.import_stored_contract("dummy-contract")
-    FA12 = sp.io.import_stored_contract("fa12")
-    FA2 = sp.io.import_stored_contract("fa2")
-    Token = sp.io.import_stored_contract("token")
-    FakeQuipuswap = sp.io.import_stored_contract("fake-quipuswap")
-    FakeHarbinger = sp.io.import_stored_contract("fake-harbinger-normalizer")
+    DummyContract = sp.io.import_script_from_url("file:test-helpers/dummy-contract.py")
+    FA12 = sp.io.import_script_from_url("file:test-helpers/fa12.py")
+    FA2 = sp.io.import_script_from_url("file:test-helpers/fa2.py")
+    Token = sp.io.import_script_from_url("file:test-helpers/token.py")
+    FakeQuipuswap = sp.io.import_script_from_url("file:test-helpers/fake-quipuswap.py")
+    FakeHarbinger = sp.io.import_script_from_url("file:test-helpers/fake-harbinger-normalizer.py")
 
     ################################################################
     # default
@@ -452,7 +450,7 @@ if __name__ == "__main__":
       scenario.verify(fund.balance == amount)
 
     ################################################################
-    #addLiquidity
+    # addLiquidity
     ################################################################
     @sp.add_test(name="addLiquidity - fails when not called by executor")
     def test():
