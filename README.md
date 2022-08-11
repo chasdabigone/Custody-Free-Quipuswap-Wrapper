@@ -10,7 +10,7 @@
 
 ## Instructions for use
 
-This project was created using [SmartPy](https://smartpy.io) and requires the SmartPy CLI to interact
+This project was created using [SmartPy 0.12](https://smartpy.io) and requires the SmartPy CLI to interact
 
 Set the addresses in `common/addresses.py`, compile, and deploy.
 
