@@ -30,8 +30,7 @@ class MakerContract(sp.Contract):
     tradeAmount = sp.nat(10),
 
     tokenBalance = sp.nat(0), # this should be 0 when deployed
-    lastTradeTime = sp.timestamp(1),
-    spotPrice = sp.nat(0)
+    lastTradeTime = sp.timestamp(1)
 
     
   ):
@@ -55,15 +54,14 @@ class MakerContract(sp.Contract):
         tradeAmount = tradeAmount,
 
         tokenBalance = tokenBalance,       
-        lastTradeTime = lastTradeTime, 
-        spotPrice = spotPrice   
+        lastTradeTime = lastTradeTime   
     )
 
   ################################################################
   # Quipuswap API
   ################################################################
 
-  @sp.entry_point
+  @sp.entry_point(check_no_incoming_transfer=True)
   def tokenToTezPayment(self):
     
     # Verify the contract isn't paused.
@@ -73,16 +71,16 @@ class MakerContract(sp.Contract):
     timeDeltaSeconds = sp.as_nat(sp.now - self.data.lastTradeTime)
     sp.verify(timeDeltaSeconds >= self.data.minTradeDelaySec, Errors.TRADE_TIME)
 
-    # Read vwap from Harbinger views
-    harbingerVwap = sp.view(
+    # Read vwap from Harbinger Normalizer
+    harbingerVwap = sp.local('harbingerVwap', sp.view(
       "getPrice",
       self.data.vwapContractAddress,
       Constants.ASSET_CODE,
       sp.TPair(sp.TTimestamp, sp.TNat)
-    ).open_some(message = Errors.VWAP_VIEW_ERROR)
+    ).open_some(message = Errors.VWAP_VIEW_ERROR))
 
-    # Read spot price from Harbinger views
-    harbingerSpot = sp.view(
+    # Read spot price from Harbinger Spot
+    harbingerSpot = sp.local('harbingerSpot', sp.view(
       "getPrice",
       self.data.spotContractAddress,
       Constants.ASSET_CODE,
@@ -106,29 +104,33 @@ class MakerContract(sp.Contract):
         )
       )
     
-    ).open_some(message = Errors.SPOT_VIEW_ERROR)
+    ).open_some(message = Errors.SPOT_VIEW_ERROR))
 
-    # Save spot price to storage
-    self.data.spotPrice = (sp.fst(sp.snd(sp.snd(sp.snd(sp.snd(sp.snd(harbingerSpot)))))))
+    # Extract spot price
+    spotPrice = sp.local('spotPrice', (sp.fst(sp.snd(sp.snd(sp.snd(sp.snd(sp.snd(harbingerSpot.value))))))))
 
     # Assert that the Harbinger spot data is newer than max data delay
-    dataAge = sp.as_nat(sp.now - sp.fst(sp.snd(harbingerSpot)))
+    dataAge = sp.as_nat(sp.now - sp.fst(sp.snd(harbingerSpot.value)))
     sp.verify(dataAge <= self.data.maxDataDelaySec, Errors.STALE_DATA)
+
+    # Assert that latest Harbinger Normalizer update is newer than max data delay
+    vwapAge = sp.as_nat(sp.now - sp.fst(harbingerVwap.value))
+    sp.verify(vwapAge <= self.data.maxDataDelaySec, Errors.STALE_DATA)
   
-    # Upsample price numbers to have tokenPrecision digits of precision
-    harbingerVwapPrice = (sp.snd(harbingerVwap) * Constants.PRECISION) // 1_000_000
-    harbingerSpotPrice = (self.data.spotPrice * Constants.PRECISION) // 1_000_000
+    # Upsample price numbers using token precision constant
+    harbingerVwapPrice = (sp.snd(harbingerVwap.value) * Constants.PRECISION) // 1_000_000
+    harbingerSpotPrice = sp.local('harbingerSpotPrice', (spotPrice.value * Constants.PRECISION) // 1_000_000)
 
     # Check for volatility difference between VWAP and spot
-    volatilityDifference = (abs(harbingerVwapPrice - harbingerSpotPrice) * 100 // harbingerSpotPrice) # because tolerance is a percent
+    volatilityDifference = (abs(harbingerVwapPrice - harbingerSpotPrice.value) * 100 // harbingerSpotPrice.value) # because tolerance is a percent
     sp.verify(self.data.volatilityTolerance > volatilityDifference, Errors.VOLATILITY)
 
     # Upsample
-    tokensToTrade = (self.data.tradeAmount * Constants.PRECISION)
+    tokensToTrade = sp.local('tokensToTrade', (self.data.tradeAmount * Constants.PRECISION))
 
     # Calculate the expected XTZ with no slippage.
     # Expected out with no slippage = (number of tokens to trade // mutez Spot price) / 1e6
-    neutralOut = (tokensToTrade // self.data.spotPrice) // 1_000_000
+    neutralOut = (tokensToTrade.value // spotPrice.value) // 1_000_000
 
     # Apply spread multiplier
     # Expected out multiplied by spread = (neutral out from above) * (1 + spread amount)
@@ -141,7 +143,7 @@ class MakerContract(sp.Contract):
         self.data.tokenAddress,
         "approve"
     ).open_some(message = Errors.APPROVAL)
-    approveArg = sp.pair(self.data.quipuswapContractAddress, tokensToTrade)
+    approveArg = sp.pair(self.data.quipuswapContractAddress, tokensToTrade.value)
     sp.transfer(approveArg, sp.mutez(0), approveHandle)
 
     # Invoke a quipuswap trade
@@ -150,7 +152,7 @@ class MakerContract(sp.Contract):
       self.data.quipuswapContractAddress,
       "tokenToTezPayment"
     ).open_some(message = Errors.DEX_CONTRACT_ERROR)
-    tradeArg = sp.pair(sp.pair(tokensToTrade, requiredOut), self.data.receiverContractAddress)
+    tradeArg = sp.pair(sp.pair(tokensToTrade.value, requiredOut), self.data.receiverContractAddress)
     sp.transfer(tradeArg, sp.mutez(0), tradeHandle)
 
     # Write last trade timestamp to storage
@@ -162,7 +164,7 @@ class MakerContract(sp.Contract):
   ################################################################
   
   # Return FA 1.2 balance to receiverContractAddress
-  @sp.entry_point
+  @sp.entry_point(check_no_incoming_transfer=True)
   def returnBalance(self):
 
     sp.verify(sp.sender == self.data.governorContractAddress, message = Errors.NOT_GOVERNOR)
@@ -170,7 +172,27 @@ class MakerContract(sp.Contract):
     # Update balance
     self.getBalance()
 
-    # Send tokens to receiver
+  # Call token contract to update balance.
+  def getBalance(self):
+    param = (sp.self_address, sp.self_entry_point(entry_point = 'redeemCallback'))
+    contractHandle = sp.contract(
+      sp.TPair(sp.TAddress, sp.TContract(sp.TNat)),
+      self.data.tokenAddress,
+      "getBalance",      
+    ).open_some()
+    sp.transfer(param, sp.mutez(0), contractHandle)
+
+  # Private callback for updating Balance.
+  @sp.entry_point(check_no_incoming_transfer=True)
+  def redeemCallback(self, updatedBalance):
+    sp.set_type(updatedBalance, sp.TNat)
+
+    # Validate sender
+    sp.verify(sp.sender == self.data.tokenAddress, Errors.BAD_SENDER)
+
+    self.data.tokenBalance = updatedBalance
+    
+    # Send balance to Receiver
     sendParam = (
       sp.self_address,
       self.data.receiverContractAddress,
@@ -184,32 +206,12 @@ class MakerContract(sp.Contract):
     ).open_some()
     sp.transfer(sendParam, sp.mutez(0), sendHandle)
 
-  # Call token contract to update balance.
-  def getBalance(self):
-    param = (sp.self_address, sp.self_entry_point(entry_point = 'redeemCallback'))
-    contractHandle = sp.contract(
-      sp.TPair(sp.TAddress, sp.TContract(sp.TNat)),
-      self.data.tokenAddress,
-      "getBalance",      
-    ).open_some()
-    sp.transfer(param, sp.mutez(0), contractHandle)
-
-  # Private callback for updating Balance.
-  @sp.entry_point
-  def redeemCallback(self, updatedBalance):
-    sp.set_type(updatedBalance, sp.TNat)
-
-    # Validate sender
-    sp.verify(sp.sender == self.data.tokenAddress, Errors.BAD_SENDER)
-
-    self.data.tokenBalance = updatedBalance
-
   ################################################################
   # Pause Guardian
   ################################################################
 
   # Pause the system
-  @sp.entry_point
+  @sp.entry_point(check_no_incoming_transfer=True)
   def pause(self):
     sp.verify(sp.sender == self.data.pauseGuardianContractAddress, message = Errors.NOT_PAUSE_GUARDIAN)
     self.data.paused = True
@@ -219,7 +221,7 @@ class MakerContract(sp.Contract):
   ################################################################
 
   # Update the max data delay (stale data).
-  @sp.entry_point
+  @sp.entry_point(check_no_incoming_transfer=True)
   def setMaxDataDelaySec(self, newMaxDataDelaySec):
     sp.set_type(newMaxDataDelaySec, sp.TNat)
 
@@ -227,7 +229,7 @@ class MakerContract(sp.Contract):
     self.data.maxDataDelaySec = newMaxDataDelaySec
 
   # Update the delay between swaps.
-  @sp.entry_point
+  @sp.entry_point(check_no_incoming_transfer=True)
   def setMinTradeDelaySec(self, newMinTradeDelaySec):
     sp.set_type(newMinTradeDelaySec, sp.TNat)
 
@@ -235,7 +237,7 @@ class MakerContract(sp.Contract):
     self.data.minTradeDelaySec = newMinTradeDelaySec
 
   # Set the trade amount (in normalized tokens).
-  @sp.entry_point
+  @sp.entry_point(check_no_incoming_transfer=True)
   def setTradeAmount(self, newTradeAmount):
     sp.set_type(newTradeAmount, sp.TNat)
 
@@ -243,14 +245,14 @@ class MakerContract(sp.Contract):
     self.data.tradeAmount = newTradeAmount
 
   # Set spread amount (in percent)
-  @sp.entry_point
+  @sp.entry_point(check_no_incoming_transfer=True)
   def setSpreadAmount(self, newSpreadAmount):
     sp.set_type(newSpreadAmount, sp.TNat)
     sp.verify(sp.sender == self.data.governorContractAddress, message = Errors.NOT_GOVERNOR)
     self.data.spreadAmount = newSpreadAmount
 
   # Set volatility tolerance (in percent)
-  @sp.entry_point
+  @sp.entry_point(check_no_incoming_transfer=True)
   def setVolatilityTolerance(self, newVolatilityTolerance):
     sp.set_type(newVolatilityTolerance, sp.TNat)
     
@@ -258,13 +260,13 @@ class MakerContract(sp.Contract):
     self.data.volatilityTolerance = newVolatilityTolerance
 
   # Unpause the system.
-  @sp.entry_point
+  @sp.entry_point(check_no_incoming_transfer=True)
   def unpause(self):
     sp.verify(sp.sender == self.data.governorContractAddress, message = Errors.NOT_GOVERNOR)
     self.data.paused = False
 
   # Update the Harbinger normalizer contract.
-  @sp.entry_point
+  @sp.entry_point(check_no_incoming_transfer=True)
   def setVwapContract(self, newVwapContractAddress):
     sp.set_type(newVwapContractAddress, sp.TAddress)
 
@@ -272,7 +274,7 @@ class MakerContract(sp.Contract):
     self.data.vwapContractAddress = newVwapContractAddress
 
   # Update the Harbinger spot contract.
-  @sp.entry_point
+  @sp.entry_point(check_no_incoming_transfer=True)
   def setSpotContract(self, newSpotContractAddress):
     sp.set_type(newSpotContractAddress, sp.TAddress)
 
@@ -280,7 +282,7 @@ class MakerContract(sp.Contract):
     self.data.spotContractAddress = newSpotContractAddress
 
   # Update the pause guardian contract.
-  @sp.entry_point
+  @sp.entry_point(check_no_incoming_transfer=True)
   def setPauseGuardianContract(self, newPauseGuardianContractAddress):
     sp.set_type(newPauseGuardianContractAddress, sp.TAddress)
 
@@ -288,7 +290,7 @@ class MakerContract(sp.Contract):
     self.data.pauseGuardianContractAddress = newPauseGuardianContractAddress
 
   # Update the Quipuswap AMM contract.
-  @sp.entry_point
+  @sp.entry_point(check_no_incoming_transfer=True)
   def setQuipuswapContract(self, newQuipuswapContractAddress):
     sp.set_type(newQuipuswapContractAddress, sp.TAddress)
 
@@ -296,7 +298,7 @@ class MakerContract(sp.Contract):
     self.data.quipuswapContractAddress = newQuipuswapContractAddress
 
   # Update the governor contract.
-  @sp.entry_point
+  @sp.entry_point(check_no_incoming_transfer=True)
   def setGovernorContract(self, newGovernorContractAddress):
     sp.set_type(newGovernorContractAddress, sp.TAddress)
 
@@ -304,7 +306,7 @@ class MakerContract(sp.Contract):
     self.data.governorContractAddress = newGovernorContractAddress
   
   # Update the Receiver contract.                             
-  @sp.entry_point
+  @sp.entry_point(check_no_incoming_transfer=True)
   def setReceiverContract(self, newReceiverContractAddress):
     sp.set_type(newReceiverContractAddress, sp.TAddress)
 
@@ -454,6 +456,13 @@ if __name__ == "__main__":
     # GIVEN a moment in time.
     currentTime = sp.timestamp(1000)
 
+    # AND fake harbinger normalizer
+    harbingerVwap = FakeHarbingerVwap.FakeHarbingerContract(
+      harbingerValue = sp.nat(3_500_000),
+      harbingerAsset = Constants.ASSET_CODE
+    )
+    scenario += harbingerVwap
+
     # AND fake harbinger spot contract that is out of date
     lastUpdateTime = sp.timestamp(500)
     harbingerSpot = FakeHarbingerSpot.FakeHarbingerContract(
@@ -467,6 +476,7 @@ if __name__ == "__main__":
     maxDataDelaySec = sp.nat(499) # currentTime - lastUpdateTime - 1
     proxy = MakerContract(
       spotContractAddress = harbingerSpot.address,
+      vwapContractAddress = harbingerVwap.address,
       maxDataDelaySec = maxDataDelaySec
     )
     scenario += proxy
