@@ -322,10 +322,10 @@ if __name__ == "__main__":
   # Tests
   ################################################################
   ################################################################
-
-  FakeHarbingerVwap = sp.io.import_stored_contract("fake-harbinger-normalizer")
-  FakeHarbingerSpot = sp.io.import_stored_contract("fake-harbinger-spot")
-  FakeQuipuswap = sp.io.import_stored_contract("fake-quipuswap")
+  
+  FakeHarbingerVwap = sp.io.import_script_from_url("file:test-helpers/fake-harbinger-normalizer.py")
+  FakeHarbingerSpot = sp.import_script_from_url("file:test-helpers/fake-harbinger-spot.py")
+  FakeQuipuswap = sp.io.import_script_from_url("file:test-helpers/fake-quipuswap.py")
 
 
   ################################################################
