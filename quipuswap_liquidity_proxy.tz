@@ -39,7 +39,7 @@ code
                         FAILWITH;   # FAILED
                       }; # @parameter%addLiquidity : @storage
                     SWAP;       # @storage : @parameter%addLiquidity
-                    # sp.verify(self.data.slippageTolerance > (((abs(sp.snd(sp.view("getPrice", 'XTZ-USD', self.data.harbingerContractAddress, sp.TPair(sp.TTimestamp, sp.TNat)).open_some(message = 11)) - ((params.tokens // params.mutez) // 1000000))) * 100) // sp.snd(sp.view("getPrice", 'XTZ-USD', self.data.harbingerContractAddress, sp.TPair(sp.TTimestamp, sp.TNat)).open_some(message = 11))), 8) # @storage : @parameter%addLiquidity
+                    # harbingerVwap = sp.local("harbingerVwap", sp.view("getPrice", 'XTZ-USD', self.data.harbingerContractAddress, sp.TPair(sp.TTimestamp, sp.TNat)).open_some(message = 11)) # @storage : @parameter%addLiquidity
                     DUP;        # @storage : @storage : @parameter%addLiquidity
                     DUG 2;      # @storage : @parameter%addLiquidity : @storage
                     CAR;        # pair (pair (address %executorContractAddress) (address %governorContractAddress)) (pair (address %harbingerContractAddress) (nat %maxDataDelaySec)) : @parameter%addLiquidity : @storage
@@ -52,86 +52,66 @@ code
                         FAILWITH;   # FAILED
                       }
                       {}; # @some : @parameter%addLiquidity : @storage
-                    CDR;        # nat : @parameter%addLiquidity : @storage
-                    PUSH nat 100; # nat : nat : @parameter%addLiquidity : @storage
-                    PUSH nat 1000000; # nat : nat : nat : @parameter%addLiquidity : @storage
-                    DIG 3;      # @parameter%addLiquidity : nat : nat : nat : @storage
-                    DUP;        # @parameter%addLiquidity : @parameter%addLiquidity : nat : nat : nat : @storage
-                    CDR;        # nat : @parameter%addLiquidity : nat : nat : nat : @storage
-                    SWAP;       # @parameter%addLiquidity : nat : nat : nat : nat : @storage
-                    DUP;        # @parameter%addLiquidity : @parameter%addLiquidity : nat : nat : nat : nat : @storage
-                    DUG 5;      # @parameter%addLiquidity : nat : nat : nat : nat : @parameter%addLiquidity : @storage
-                    CAR;        # nat : nat : nat : nat : nat : @parameter%addLiquidity : @storage
-                    EDIV;       # option (pair nat nat) : nat : nat : nat : @parameter%addLiquidity : @storage
+                    # harbingerPrice = sp.local("harbingerPrice", sp.snd(harbingerVwap.value)) # @some : @parameter%addLiquidity : @storage
+                    DUP;        # @some : @some : @parameter%addLiquidity : @storage
+                    CDR;        # nat : @some : @parameter%addLiquidity : @storage
+                    # sp.verify(self.data.slippageTolerance > (((abs(harbingerPrice.value - ((params.tokens // params.mutez) // 1000000))) * 100) // harbingerPrice.value), 8) # nat : @some : @parameter%addLiquidity : @storage
+                    DUP;        # nat : nat : @some : @parameter%addLiquidity : @storage
+                    PUSH nat 100; # nat : nat : nat : @some : @parameter%addLiquidity : @storage
+                    PUSH nat 1000000; # nat : nat : nat : nat : @some : @parameter%addLiquidity : @storage
+                    DIG 5;      # @parameter%addLiquidity : nat : nat : nat : nat : @some : @storage
+                    DUP;        # @parameter%addLiquidity : @parameter%addLiquidity : nat : nat : nat : nat : @some : @storage
+                    CDR;        # nat : @parameter%addLiquidity : nat : nat : nat : nat : @some : @storage
+                    SWAP;       # @parameter%addLiquidity : nat : nat : nat : nat : nat : @some : @storage
+                    DUP;        # @parameter%addLiquidity : @parameter%addLiquidity : nat : nat : nat : nat : nat : @some : @storage
+                    DUG 7;      # @parameter%addLiquidity : nat : nat : nat : nat : nat : @some : @parameter%addLiquidity : @storage
+                    CAR;        # nat : nat : nat : nat : nat : nat : @some : @parameter%addLiquidity : @storage
+                    EDIV;       # option (pair nat nat) : nat : nat : nat : nat : @some : @parameter%addLiquidity : @storage
                     IF_NONE
                       {
-                        UNIT;       # unit : nat : nat : nat : @parameter%addLiquidity : @storage
+                        UNIT;       # unit : nat : nat : nat : nat : @some : @parameter%addLiquidity : @storage
                         FAILWITH;   # FAILED
                       }
                       {
-                        CAR;        # nat : nat : nat : nat : @parameter%addLiquidity : @storage
-                      }; # nat : nat : nat : nat : @parameter%addLiquidity : @storage
-                    EDIV;       # option (pair nat nat) : nat : nat : @parameter%addLiquidity : @storage
+                        CAR;        # nat : nat : nat : nat : nat : @some : @parameter%addLiquidity : @storage
+                      }; # nat : nat : nat : nat : nat : @some : @parameter%addLiquidity : @storage
+                    EDIV;       # option (pair nat nat) : nat : nat : nat : @some : @parameter%addLiquidity : @storage
                     IF_NONE
                       {
-                        UNIT;       # unit : nat : nat : @parameter%addLiquidity : @storage
+                        UNIT;       # unit : nat : nat : nat : @some : @parameter%addLiquidity : @storage
                         FAILWITH;   # FAILED
                       }
                       {
-                        CAR;        # nat : nat : nat : @parameter%addLiquidity : @storage
-                      }; # nat : nat : nat : @parameter%addLiquidity : @storage
-                    DUP 5;      # @storage : nat : nat : nat : @parameter%addLiquidity : @storage
-                    CAR;        # pair (pair (address %executorContractAddress) (address %governorContractAddress)) (pair (address %harbingerContractAddress) (nat %maxDataDelaySec)) : nat : nat : nat : @parameter%addLiquidity : @storage
-                    GET 3;      # address : nat : nat : nat : @parameter%addLiquidity : @storage
-                    PUSH string "XTZ-USD"; # string : address : nat : nat : nat : @parameter%addLiquidity : @storage
-                    VIEW "getPrice" (pair timestamp nat); # option (pair timestamp nat) : nat : nat : nat : @parameter%addLiquidity : @storage
+                        CAR;        # nat : nat : nat : nat : @some : @parameter%addLiquidity : @storage
+                      }; # nat : nat : nat : nat : @some : @parameter%addLiquidity : @storage
+                    DIG 3;      # nat : nat : nat : nat : @some : @parameter%addLiquidity : @storage
+                    SUB;        # int : nat : nat : @some : @parameter%addLiquidity : @storage
+                    ABS;        # nat : nat : nat : @some : @parameter%addLiquidity : @storage
+                    MUL;        # nat : nat : @some : @parameter%addLiquidity : @storage
+                    EDIV;       # option (pair nat nat) : @some : @parameter%addLiquidity : @storage
                     IF_NONE
                       {
-                        PUSH int 11; # int : nat : nat : nat : @parameter%addLiquidity : @storage
-                        FAILWITH;   # FAILED
-                      }
-                      {}; # @some : nat : nat : nat : @parameter%addLiquidity : @storage
-                    CDR;        # nat : nat : nat : nat : @parameter%addLiquidity : @storage
-                    SUB;        # int : nat : nat : @parameter%addLiquidity : @storage
-                    ABS;        # nat : nat : nat : @parameter%addLiquidity : @storage
-                    MUL;        # nat : nat : @parameter%addLiquidity : @storage
-                    EDIV;       # option (pair nat nat) : @parameter%addLiquidity : @storage
-                    IF_NONE
-                      {
-                        UNIT;       # unit : @parameter%addLiquidity : @storage
+                        UNIT;       # unit : @some : @parameter%addLiquidity : @storage
                         FAILWITH;   # FAILED
                       }
                       {
-                        CAR;        # nat : @parameter%addLiquidity : @storage
-                      }; # nat : @parameter%addLiquidity : @storage
-                    DUP 3;      # @storage : nat : @parameter%addLiquidity : @storage
-                    GET 5;      # nat : nat : @parameter%addLiquidity : @storage
-                    COMPARE;    # int : @parameter%addLiquidity : @storage
-                    GT;         # bool : @parameter%addLiquidity : @storage
+                        CAR;        # nat : @some : @parameter%addLiquidity : @storage
+                      }; # nat : @some : @parameter%addLiquidity : @storage
+                    DUP 4;      # @storage : nat : @some : @parameter%addLiquidity : @storage
+                    GET 5;      # nat : nat : @some : @parameter%addLiquidity : @storage
+                    COMPARE;    # int : @some : @parameter%addLiquidity : @storage
+                    GT;         # bool : @some : @parameter%addLiquidity : @storage
                     IF
                       {}
                       {
-                        PUSH int 8; # int : @parameter%addLiquidity : @storage
+                        PUSH int 8; # int : @some : @parameter%addLiquidity : @storage
                         FAILWITH;   # FAILED
-                      }; # @parameter%addLiquidity : @storage
-                    SWAP;       # @storage : @parameter%addLiquidity
-                    # sp.verify(sp.as_nat(sp.now - sp.fst(sp.view("getPrice", 'XTZ-USD', self.data.harbingerContractAddress, sp.TPair(sp.TTimestamp, sp.TNat)).open_some(message = 11))) <= self.data.maxDataDelaySec, 4) # @storage : @parameter%addLiquidity
-                    DUP;        # @storage : @storage : @parameter%addLiquidity
-                    CAR;        # pair (pair (address %executorContractAddress) (address %governorContractAddress)) (pair (address %harbingerContractAddress) (nat %maxDataDelaySec)) : @storage : @parameter%addLiquidity
-                    GET 4;      # nat : @storage : @parameter%addLiquidity
-                    SWAP;       # @storage : nat : @parameter%addLiquidity
-                    DUP;        # @storage : @storage : nat : @parameter%addLiquidity
-                    DUG 3;      # @storage : nat : @parameter%addLiquidity : @storage
-                    CAR;        # pair (pair (address %executorContractAddress) (address %governorContractAddress)) (pair (address %harbingerContractAddress) (nat %maxDataDelaySec)) : nat : @parameter%addLiquidity : @storage
-                    GET 3;      # address : nat : @parameter%addLiquidity : @storage
-                    PUSH string "XTZ-USD"; # string : address : nat : @parameter%addLiquidity : @storage
-                    VIEW "getPrice" (pair timestamp nat); # option (pair timestamp nat) : nat : @parameter%addLiquidity : @storage
-                    IF_NONE
-                      {
-                        PUSH int 11; # int : nat : @parameter%addLiquidity : @storage
-                        FAILWITH;   # FAILED
-                      }
-                      {}; # @some : nat : @parameter%addLiquidity : @storage
+                      }; # @some : @parameter%addLiquidity : @storage
+                    # sp.verify(sp.as_nat(sp.now - sp.fst(harbingerVwap.value)) <= self.data.maxDataDelaySec, 4) # @some : @parameter%addLiquidity : @storage
+                    DUP 3;      # @storage : @some : @parameter%addLiquidity : @storage
+                    CAR;        # pair (pair (address %executorContractAddress) (address %governorContractAddress)) (pair (address %harbingerContractAddress) (nat %maxDataDelaySec)) : @some : @parameter%addLiquidity : @storage
+                    GET 4;      # nat : @some : @parameter%addLiquidity : @storage
+                    SWAP;       # @some : nat : @parameter%addLiquidity : @storage
                     CAR;        # timestamp : nat : @parameter%addLiquidity : @storage
                     NOW;        # @now : timestamp : nat : @parameter%addLiquidity : @storage
                     SUB;        # int : nat : @parameter%addLiquidity : @storage
