@@ -75,25 +75,25 @@ class LiquidityFundContract(sp.Contract):
         sp.verify(sp.sender == self.data.executorContractAddress, message = Errors.NOT_EXECUTOR)
 
         # Read vwap from Harbinger Normalizer views
-        harbingerVwap = sp.view(
+        harbingerVwap = sp.local('harbingerVwap', sp.view(
             "getPrice",
             self.data.harbingerContractAddress,
             Constants.ASSET_CODE,
             sp.TPair(sp.TTimestamp, sp.TNat)
-        ).open_some(message = Errors.VWAP_VIEW_ERROR)
+        ).open_some(message = Errors.VWAP_VIEW_ERROR))
 
-        harbingerPrice = sp.snd(harbingerVwap)
+        harbingerPrice = sp.local('harbingerPrice', sp.snd(harbingerVwap.value))
 
         # Calculate input price to compare to Harbinger
         inputPrice = param.tokens // param.mutez // 1_000_000
 
         # Calculate percentage difference between Harbinger and function input
-        percentageDifference = abs(harbingerPrice - inputPrice) * 100 // harbingerPrice
+        percentageDifference = abs(harbingerPrice.value - inputPrice) * 100 // harbingerPrice.value
         # Assert that difference is within range of slippageTolerance
         sp.verify(self.data.slippageTolerance > percentageDifference, Errors.SLIPPAGE)
 
         # Assert that the Harbinger data is newer than max data delay
-        dataAge = sp.as_nat(sp.now - sp.fst(harbingerVwap))
+        dataAge = sp.as_nat(sp.now - sp.fst(harbingerVwap.value))
         sp.verify(dataAge <= self.data.maxDataDelaySec, Errors.STALE_DATA)
         
         # Approve Quipuswap contract to spend on token contract
