@@ -5,6 +5,13 @@ Constants = sp.io.import_script_from_url("file:common/constants.py")
 Errors = sp.io.import_script_from_url("file:common/errors.py")
 
 ################################################################
+# State Machine
+################################################################
+
+IDLE = 0
+WAITING_FOR_TOKEN_BALANCE = 1
+
+################################################################
 # Contract
 ################################################################
 
@@ -30,7 +37,9 @@ class MakerContract(sp.Contract):
     tradeAmount = sp.nat(10),
 
     tokenBalance = sp.nat(0), # this should be 0 when deployed
-    lastTradeTime = sp.timestamp(1)
+    lastTradeTime = sp.timestamp(1),
+
+    state = IDLE,
 
     
   ):
@@ -54,7 +63,9 @@ class MakerContract(sp.Contract):
         tradeAmount = tradeAmount,
 
         tokenBalance = tokenBalance,       
-        lastTradeTime = lastTradeTime   
+        lastTradeTime = lastTradeTime,
+
+        state = state 
     )
 
   ################################################################
@@ -169,11 +180,10 @@ class MakerContract(sp.Contract):
 
     sp.verify(sp.sender == self.data.governorContractAddress, message = Errors.NOT_GOVERNOR)
 
-    # Update balance
-    self.getBalance()
-
-  # Call token contract to update balance.
-  def getBalance(self):
+    # Verify state is correct.
+    sp.verify(self.data.state == IDLE, message = Errors.BAD_STATE)
+    
+    # Call token contract to update balance.
     param = (sp.self_address, sp.self_entry_point(entry_point = 'redeemCallback'))
     contractHandle = sp.contract(
       sp.TPair(sp.TAddress, sp.TContract(sp.TNat)),
@@ -181,6 +191,9 @@ class MakerContract(sp.Contract):
       "getBalance",      
     ).open_some()
     sp.transfer(param, sp.mutez(0), contractHandle)
+
+    # Save state to state machine
+    self.data.state = WAITING_FOR_TOKEN_BALANCE
 
   # Private callback for updating Balance.
   @sp.entry_point(check_no_incoming_transfer=True)
@@ -205,6 +218,9 @@ class MakerContract(sp.Contract):
       "transfer"
     ).open_some()
     sp.transfer(sendParam, sp.mutez(0), sendHandle)
+
+    # Reset state
+    self.data.state = IDLE
 
   ################################################################
   # Pause Guardian
