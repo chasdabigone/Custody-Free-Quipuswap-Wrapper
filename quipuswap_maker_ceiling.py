@@ -203,6 +203,9 @@ class MakerContract(sp.Contract):
     # Validate sender
     sp.verify(sp.sender == self.data.tokenAddress, Errors.BAD_SENDER)
 
+    # Verify state is correct.
+		sp.verify(self.data.state == WAITING_FOR_TOKEN_BALANCE, message = Errors.BAD_STATE)
+    
     self.data.tokenBalance = updatedBalance
     
     # Send balance to Receiver
