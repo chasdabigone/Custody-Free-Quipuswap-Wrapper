@@ -79,6 +79,19 @@ code
                         PUSH int 10; # int : @parameter%redeemCallback : @storage
                         FAILWITH;   # FAILED
                       }; # @parameter%redeemCallback : @storage
+                    # sp.verify(self.data.state == 1, 14) # @parameter%redeemCallback : @storage
+                    PUSH int 1; # int : @parameter%redeemCallback : @storage
+                    DUP 3;      # @storage : int : @parameter%redeemCallback : @storage
+                    GET 3;      # pair (pair (address %spotContractAddress) (nat %spreadAmount)) (pair (int %state) (address %tokenAddress)) : int : @parameter%redeemCallback : @storage
+                    GET 3;      # int : int : @parameter%redeemCallback : @storage
+                    COMPARE;    # int : @parameter%redeemCallback : @storage
+                    EQ;         # bool : @parameter%redeemCallback : @storage
+                    IF
+                      {}
+                      {
+                        PUSH int 14; # int : @parameter%redeemCallback : @storage
+                        FAILWITH;   # FAILED
+                      }; # @parameter%redeemCallback : @storage
                     SWAP;       # @storage : @parameter%redeemCallback
                     # self.data.tokenBalance = params # @storage : @parameter%redeemCallback
                     UNPAIR;     # pair (pair (pair (address %governorContractAddress) (timestamp %lastTradeTime)) (pair (nat %maxDataDelaySec) (nat %minTradeDelaySec))) (pair (pair (address %pauseGuardianContractAddress) (bool %paused)) (pair (address %quipuswapContractAddress) (address %receiverContractAddress))) : pair (pair (pair (address %spotContractAddress) (nat %spreadAmount)) (pair (int %state) (address %tokenAddress))) (pair (pair (nat %tokenBalance) (nat %tradeAmount)) (pair (nat %volatilityTolerance) (address %vwapContractAddress))) : @parameter%redeemCallback
@@ -101,7 +114,7 @@ code
                     CONTRACT %transfer (pair address (pair address nat)); # option (contract (pair address (pair address nat))) : pair (pair (pair (pair (address %governorContractAddress) (timestamp %lastTradeTime)) (pair (nat %maxDataDelaySec) (nat %minTradeDelaySec))) (pair (pair (address %pauseGuardianContractAddress) (bool %paused)) (pair (address %quipuswapContractAddress) (address %receiverContractAddress)))) (pair (pair (pair (address %spotContractAddress) (nat %spreadAmount)) (pair (int %state) (address %tokenAddress))) (pair (pair @parameter%redeemCallback nat) (pair (nat %volatilityTolerance) (address %vwapContractAddress))))
                     IF_NONE
                       {
-                        PUSH int 215; # int : pair (pair (pair (pair (address %governorContractAddress) (timestamp %lastTradeTime)) (pair (nat %maxDataDelaySec) (nat %minTradeDelaySec))) (pair (pair (address %pauseGuardianContractAddress) (bool %paused)) (pair (address %quipuswapContractAddress) (address %receiverContractAddress)))) (pair (pair (pair (address %spotContractAddress) (nat %spreadAmount)) (pair (int %state) (address %tokenAddress))) (pair (pair @parameter%redeemCallback nat) (pair (nat %volatilityTolerance) (address %vwapContractAddress))))
+                        PUSH int 218; # int : pair (pair (pair (pair (address %governorContractAddress) (timestamp %lastTradeTime)) (pair (nat %maxDataDelaySec) (nat %minTradeDelaySec))) (pair (pair (address %pauseGuardianContractAddress) (bool %paused)) (pair (address %quipuswapContractAddress) (address %receiverContractAddress)))) (pair (pair (pair (address %spotContractAddress) (nat %spreadAmount)) (pair (int %state) (address %tokenAddress))) (pair (pair @parameter%redeemCallback nat) (pair (nat %volatilityTolerance) (address %vwapContractAddress))))
                         FAILWITH;   # FAILED
                       }
                       {}; # @some : pair (pair (pair (pair (address %governorContractAddress) (timestamp %lastTradeTime)) (pair (nat %maxDataDelaySec) (nat %minTradeDelaySec))) (pair (pair (address %pauseGuardianContractAddress) (bool %paused)) (pair (address %quipuswapContractAddress) (address %receiverContractAddress)))) (pair (pair (pair (address %spotContractAddress) (nat %spreadAmount)) (pair (int %state) (address %tokenAddress))) (pair (pair @parameter%redeemCallback nat) (pair (nat %volatilityTolerance) (address %vwapContractAddress))))
