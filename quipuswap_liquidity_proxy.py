@@ -112,7 +112,16 @@ class LiquidityFundContract(sp.Contract):
             "investLiquidity"
         ).open_some(message = Errors.DEX_CONTRACT_ERROR)
         sp.transfer(param.tokens, sp.utils.nat_to_mutez(param.mutez), addHandle)
-    
+        
+        # Set Quipuswap contract approval back to 0
+        approveHandle = sp.contract(
+            sp.TPair(sp.TAddress, sp.TNat),
+            self.data.tokenContractAddress,
+            "approve"
+        ).open_some(message = Errors.APPROVAL)
+        approveArg = sp.pair(self.data.quipuswapContractAddress, 0)
+        sp.transfer(approveArg, sp.mutez(0), approveHandle)
+        
     @sp.entry_point(check_no_incoming_transfer=True)
     def removeLiquidity(self, param):
         sp.set_type(param, sp.TRecord(
