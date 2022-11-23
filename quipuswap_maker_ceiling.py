@@ -169,6 +169,15 @@ class MakerContract(sp.Contract):
     # Write last trade timestamp to storage
     self.data.lastTradeTime = sp.now
 
+    # Revoke Quipuswap contract approval on token contract
+    approveHandle = sp.contract(
+        sp.TPair(sp.TAddress, sp.TNat),
+        self.data.tokenAddress,
+        "approve"
+    ).open_some(message = Errors.APPROVAL)
+    approveArg = sp.pair(self.data.quipuswapContractAddress, 0)
+    sp.transfer(approveArg, sp.mutez(0), approveHandle)
+
 
   ################################################################
   #  Balance functions
