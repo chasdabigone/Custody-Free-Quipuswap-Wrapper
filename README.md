@@ -2,7 +2,7 @@
 
 ## What is this project?
 
-* **This repo provides a way for Kolibri DAO to interact with Quipuswap on the Tezos blockchain without giving up custody of tokens or XTZ. It uses the Harbinger oracle to verify prices.**
+* **This repo provides a way for Kolibri DAO to interact with the Quipuswap 1.0 DEX on the Tezos blockchain without giving up custody of tokens or XTZ. It uses the Harbinger oracle to verify prices.**
 * **`quipuswap_maker_ceiling.py` puts a price ceiling on a Quipuswap pair that allows anyone to invoke a swap on behalf of the contract when the price meets a set of defined parameters that interact with variable timestamp and price inputs from Harbinger.**
 * **`quipuswap_liquidity_proxy.py` enables governance and liquidity functions. It uses Harbinger to verify that liquidity is not added at an unfavorable price.**
 * **SWAPPING FUNDS IS INHERENTLY RISKY. DOING SO AUTONOMOUSLY ADDS EVEN MORE RISK. THIS REPO PROVIDES WAYS TO MANAGE THAT RISK. IT CANNOT AND DOES NOT PRETEND TO ELIMINATE THE RISK. USE WITH CAUTION**
