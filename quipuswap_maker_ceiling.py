@@ -1,5 +1,4 @@
 import smartpy as sp
-import smartpy.utils as utils
 
 # Define addresses
 
