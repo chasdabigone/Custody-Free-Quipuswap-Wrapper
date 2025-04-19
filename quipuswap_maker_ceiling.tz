@@ -95,7 +95,7 @@ code
                     CONTRACT %transfer (pair address (pair address nat)); # option (contract (pair address (pair address nat))) : pair @self (pair address nat) : @storage
                     IF_NONE
                       {
-                        PUSH int 334; # int : pair @self (pair address nat) : @storage
+                        PUSH int 340; # int : pair @self (pair address nat) : @storage
                         FAILWITH;   # FAILED
                       }
                       {}; # @some : pair @self (pair address nat) : @storage
@@ -160,7 +160,7 @@ code
                     CONTRACT %getBalance (pair address (contract nat)); # option (contract (pair address (contract nat))) : pair @self @self : @storage
                     IF_NONE
                       {
-                        PUSH int 303; # int : pair @self @self : @storage
+                        PUSH int 309; # int : pair @self @self : @storage
                         FAILWITH;   # FAILED
                       }
                       {}; # @some : pair @self @self : @storage
@@ -560,16 +560,86 @@ code
                       }
                       {}; # @some : @storage
                     # usdtPrice = sp.fst(youvesUsdt) # @some : @storage
-                    CAR;        # nat : @storage
-                    # assert usdtPrice >= 990000, Errors.USDT_PEG # nat : @storage
-                    PUSH nat 990000; # nat : nat : @storage
-                    SWAP;       # nat : nat : @storage
-                    COMPARE;    # int : @storage
-                    GE;         # bool : @storage
+                    DUP;        # @some : @some : @storage
+                    CAR;        # nat : @some : @storage
+                    # assert usdtPrice >= 990000, Errors.USDT_PEG # nat : @some : @storage
+                    PUSH nat 990000; # nat : nat : @some : @storage
+                    DUP 2;      # nat : nat : nat : @some : @storage
+                    COMPARE;    # int : nat : @some : @storage
+                    GE;         # bool : nat : @some : @storage
                     IF
                       {}
                       {
-                        PUSH int 8; # int : @storage
+                        PUSH int 8; # int : nat : @some : @storage
+                        FAILWITH;   # FAILED
+                      }; # nat : @some : @storage
+                    # assert usdtPrice <= 1010000, Errors.USDT_PEG # nat : @some : @storage
+                    PUSH nat 1010000; # nat : nat : @some : @storage
+                    SWAP;       # nat : nat : @some : @storage
+                    COMPARE;    # int : @some : @storage
+                    LE;         # bool : @some : @storage
+                    IF
+                      {}
+                      {
+                        PUSH int 8; # int : @some : @storage
+                        FAILWITH;   # FAILED
+                      }; # @some : @storage
+                    # usdtAge = utils.seconds_of_timestamp(sp.snd(youvesUsdt)) / 1000 # Convert this timestamp from milliseconds to seconds # @some : @storage
+                    PUSH nat 1000; # nat : @some : @storage
+                    LAMBDA
+                      timestamp
+                      nat
+                      {
+                        # return abs(timestamp - sp.timestamp(0)) # timestamp
+                        PUSH timestamp "1970-01-01T00:00:00Z"; # timestamp : timestamp
+                        SWAP;       # timestamp : timestamp
+                        SUB;        # int
+                        ABS;        # nat
+                      }; # lambda timestamp nat : nat : @some : @storage
+                    DIG 2;      # @some : lambda timestamp nat : nat : @storage
+                    CDR;        # timestamp : lambda timestamp nat : nat : @storage
+                    EXEC;       # nat : nat : @storage
+                    EDIV;       # option (pair nat nat) : @storage
+                    IF_NONE
+                      {
+                        PUSH int 226; # int : @storage
+                        FAILWITH;   # FAILED
+                      }
+                      {
+                        CAR;        # nat : @storage
+                      }; # nat : @storage
+                    # usdtDataAge = utils.seconds_of_timestamp(sp.now) - usdtAge # nat : @storage
+                    LAMBDA
+                      timestamp
+                      nat
+                      {
+                        # return abs(timestamp - sp.timestamp(0)) # timestamp
+                        PUSH timestamp "1970-01-01T00:00:00Z"; # timestamp : timestamp
+                        SWAP;       # timestamp : timestamp
+                        SUB;        # int
+                        ABS;        # nat
+                      }; # lambda timestamp nat : nat : @storage
+                    NOW;        # @now : lambda timestamp nat : nat : @storage
+                    EXEC;       # nat : nat : @storage
+                    SUB;        # int : @storage
+                    SWAP;       # @storage : int
+                    # assert sp.as_nat(usdtDataAge) <= self.data.maxDataDelaySec, Errors.STALE_DATA # @storage : int
+                    DUP;        # @storage : @storage : int
+                    GET 5;      # nat : @storage : int
+                    DIG 2;      # int : nat : @storage
+                    ISNAT;      # option nat : nat : @storage
+                    IF_NONE
+                      {
+                        PUSH int 228; # int : nat : @storage
+                        FAILWITH;   # FAILED
+                      }
+                      {}; # @some : nat : @storage
+                    COMPARE;    # int : @storage
+                    LE;         # bool : @storage
+                    IF
+                      {}
+                      {
+                        PUSH int 4; # int : @storage
                         FAILWITH;   # FAILED
                       }; # @storage
                     # youvesSpot = sp.view( # @storage
@@ -586,7 +656,7 @@ code
                     # spotPrice = sp.fst(youvesSpot) # @some : @storage
                     DUP;        # @some : @some : @storage
                     CAR;        # nat : @some : @storage
-                    # spotAge = utils.seconds_of_timestamp(sp.snd(youvesSpot)) / 1000 # nat : @some : @storage
+                    # spotAge = utils.seconds_of_timestamp(sp.snd(youvesSpot)) / 1000 # Convert this timestamp from milliseconds to seconds # nat : @some : @storage
                     PUSH nat 1000; # nat : nat : @some : @storage
                     LAMBDA
                       timestamp
@@ -604,7 +674,7 @@ code
                     EDIV;       # option (pair nat nat) : nat : @storage
                     IF_NONE
                       {
-                        PUSH int 239; # int : nat : @storage
+                        PUSH int 245; # int : nat : @storage
                         FAILWITH;   # FAILED
                       }
                       {
@@ -631,7 +701,7 @@ code
                     ISNAT;      # option nat : nat : nat : @storage
                     IF_NONE
                       {
-                        PUSH int 241; # int : nat : nat : @storage
+                        PUSH int 247; # int : nat : nat : @storage
                         FAILWITH;   # FAILED
                       }
                       {}; # @some : nat : nat : @storage
@@ -655,7 +725,7 @@ code
                     EDIV;       # option (pair nat nat) : nat : nat : @storage
                     IF_NONE
                       {
-                        PUSH int 248; # int : nat : nat : @storage
+                        PUSH int 254; # int : nat : nat : @storage
                         FAILWITH;   # FAILED
                       }
                       {
@@ -664,7 +734,7 @@ code
                     EDIV;       # option (pair nat nat) : nat : @storage
                     IF_NONE
                       {
-                        PUSH int 248; # int : nat : @storage
+                        PUSH int 254; # int : nat : @storage
                         FAILWITH;   # FAILED
                       }
                       {
@@ -683,7 +753,7 @@ code
                     EDIV;       # option (pair nat nat) : nat : @storage
                     IF_NONE
                       {
-                        PUSH int 253; # int : nat : @storage
+                        PUSH int 259; # int : nat : @storage
                         FAILWITH;   # FAILED
                       }
                       {
