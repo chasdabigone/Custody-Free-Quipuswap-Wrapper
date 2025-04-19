@@ -168,7 +168,7 @@ def quipu():
             quipuswapContractAddress,
             tokenAddress,
             paused,
-            maxDataDelaySec,  # 5 minutes
+            maxDataDelaySec,  
             minTradeDelaySec,  # Time to wait in seconds between allowing swaps (use 0 to allow batch transactions)
             spreadAmount,  # How far below the oracle price the exchange price must be in percent before allowing a swap. Scale 1-1000, 10=1%
             tradeAmount,
@@ -206,7 +206,7 @@ def quipu():
             assert timeDeltaSeconds >= self.data.minTradeDelaySec, Errors.TRADE_TIME
 
             # Tether depeg protection
-            # Read USDUSDT price from Youves
+            # Read USDTUSD price from Youves
             youvesUsdt = sp.view(
                 "get_price_with_timestamp",
                 self.data.spotContractAddress,
@@ -220,9 +220,15 @@ def quipu():
             # Extract USDT price
             usdtPrice = sp.fst(youvesUsdt)
 
-            # Assert that USDT price is at least 99% of USD price
+            # Assert that USDT price is between 101% and 99% of USD price
             assert usdtPrice >= 990000, Errors.USDT_PEG
-
+            assert usdtPrice <= 1010000, Errors.USDT_PEG
+            
+            # Assert that the Youves USDT data is newer than max data delay
+            usdtAge = utils.seconds_of_timestamp(sp.snd(youvesUsdt)) / 1000 # Convert this timestamp from milliseconds to seconds
+            usdtDataAge = utils.seconds_of_timestamp(sp.now) - usdtAge
+            assert sp.as_nat(usdtDataAge) <= self.data.maxDataDelaySec, Errors.STALE_DATA
+            
             # Read spot price from Youves Spot
             youvesSpot = sp.view(
                 "get_price_with_timestamp",
@@ -237,7 +243,7 @@ def quipu():
             # Extract spot price
             spotPrice = sp.fst(youvesSpot)
             
-            # Assert that the Youves spot data is newer than max data delay
+            # Assert that the Youves XTZ data is newer than max data delay
             spotAge = utils.seconds_of_timestamp(sp.snd(youvesSpot)) / 1000 # Convert this timestamp from milliseconds to seconds
             dataAge = utils.seconds_of_timestamp(sp.now) - spotAge
             assert sp.as_nat(dataAge) <= self.data.maxDataDelaySec, Errors.STALE_DATA
@@ -387,7 +393,7 @@ def quipu():
             assert sp.sender == self.data.governorContractAddress, Errors.NOT_GOVERNOR
             self.data.tradeAmount = newTradeAmount
 
-        # Set spread amount (in percent)
+        # Set spread amount (in tenths of a percent)
         @sp.entrypoint
         def setSpreadAmount(self, newSpreadAmount):
             assert sp.amount == sp.tez(0)
@@ -403,7 +409,7 @@ def quipu():
             assert sp.sender == self.data.governorContractAddress, Errors.NOT_GOVERNOR
             self.data.paused = False
 
-        # Update the Youves spot contract.
+        # Update the Youves oracle proxy contract.
         @sp.entrypoint
         def setSpotContract(self, newSpotContractAddress):
             assert sp.amount == sp.tez(0)
